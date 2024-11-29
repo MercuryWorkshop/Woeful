@@ -1,6 +1,13 @@
 #include "../src/packets.h"
+#include "../src/systemInterface.hpp"
+#include <arpa/inet.h>
+#include <atomic>
+#include <cstdio>
 #include <cstring>
 #include <gtest/gtest.h>
+#include <netinet/in.h>
+#include <sys/epoll.h>
+#include <unistd.h>
 
 TEST(WispPacket, Parsing) {
   unsigned char data[] = {9, 8, 0, 0, 0, 1, 2, 3};
@@ -87,4 +94,62 @@ TEST(InfoPacket, Serializing) {
   EXPECT_EQ(serialized.second, 2);
   EXPECT_EQ(serialized.first.get()[0], 9);
   EXPECT_EQ(serialized.first.get()[1], 17);
+}
+
+TEST(SystemInterface, Resolution) {
+  SystemInterface interface((char *)"1.1.1.1");
+  {
+    auto res = interface.resolve((char *)"foxmoss.com", (char *)"80");
+    EXPECT_EQ(
+        strcmp(inet_ntoa(((struct sockaddr_in *)res->get()->ai_addr)->sin_addr),
+               "205.185.125.167"),
+        0);
+  }
+  {
+    auto res = interface.resolve((char *)"45.79.112.203", (char *)"4242");
+    EXPECT_EQ(
+        strcmp(inet_ntoa(((struct sockaddr_in *)res->get()->ai_addr)->sin_addr),
+               "45.79.112.203"),
+        0);
+  }
+  // TODO: test for ipv6?? i genuinely cant find ipv6 only site
+}
+
+TEST(SystemInterface, Epoll) {
+  EpollWrapper epoll;
+  std::atomic<bool> should_kill = false;
+  std::atomic<int> wake_count = 0;
+  auto thread = std::thread([&epoll, &should_kill, &wake_count]() {
+    while (true) {
+      epoll_event events[BUFFER_COUNT];
+      epoll.wait(events);
+      wake_count++;
+      if (should_kill) {
+        return;
+      }
+    }
+  });
+  should_kill = true;
+  epoll.wake();
+  thread.join();
+  EXPECT_EQ(wake_count, 1);
+}
+
+TEST(SystemInterface, ReadNonBlock) {
+  EpollWrapper epoll;
+  SystemInterface interface((char *)"1.1.1.1");
+  auto stream = interface.open_stream((char *)"127.0.0.1", 1, 8080);
+  EXPECT_EQ(stream.has_value(), true);
+
+  epoll.push_fd(stream->first);
+  char *buf = "Hello!\n";
+  write(stream->first, buf, strlen(buf));
+  epoll_event events[BUFFER_COUNT];
+  auto count = epoll.wait(events);
+  EXPECT_EQ(count.has_value(), true);
+  EXPECT_EQ(count, 1);
+
+  char read_buf[1024];
+  read(events[0].data.fd, read_buf, 1024);
+  printf("%s\n", read_buf);
 }

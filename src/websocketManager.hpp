@@ -1,13 +1,16 @@
 #pragma once
 #include "packets.h"
+#include "systemInterface.hpp"
 #include <cstddef>
 #include <cstdint>
 #include <cstdio>
 #include <mutex>
 #include <sched.h>
+#include <shared_mutex>
 #include <string_view>
 #include <thread>
 #include <uWebSockets/App.h>
+#include <unistd.h>
 #include <unordered_map>
 
 class WebSocketManager;
@@ -19,20 +22,23 @@ struct PerSocketData {
 };
 typedef uWS::WebSocket<false, true, PerSocketData> WebSocket;
 
-struct SocketStream {
-  FILE fd;
-  uint32_t buffer = BUFFER_COUNT;
+struct SocketStreamData {
+  uint8_t stream_type;
   uint32_t id;
+  int fd;
+  std::shared_ptr<addrinfo> fd_info;
+  uint32_t buffer = BUFFER_COUNT;
 };
 
 class WebSocketManager {
 public:
-  WebSocketManager(WebSocket *ws, size_t id, SystemWatcher *watcher);
+  WebSocketManager(WebSocket *ws, size_t id, SystemWatcher *watcher,
+                   SystemInterface *interface);
   ~WebSocketManager();
 
   void receive(std::string_view view) {
     WispPacket packet((unsigned char *)view.data(), view.size());
-    printf("Got packet type %i\n", packet.packet_type);
+    // TODO: log equivelent printf("Got packet type %i\n", packet.packet_type);
     if (packet.packet_type == PACKET_INFO) {
       // TODO: proccess info packet info
       received_info = true;
@@ -40,15 +46,24 @@ public:
       if (!received_info) {
         // TODO: report error;
         send_close(0x04);
-        force_close();
+        ws->close();
         return;
       }
       switch (packet.packet_type) {
 
       case PACKET_CONNECT: {
+        auto ret = handle_connect(packet);
+        if (!ret.has_value()) {
+          // failed to create stream error
+          send_close(0x41);
+          ws->close();
+        }
         break;
       }
       case PACKET_DATA: {
+        if (!handle_data(packet).has_value()) {
+          // TODO: handle error
+        }
         break;
       }
 
@@ -64,8 +79,8 @@ public:
     }
   }
 
-  void handle_connect(WispPacket packet);
-  void handle_data(WispPacket packet);
+  std::optional<int> handle_connect(WispPacket packet);
+  std::optional<uint32_t> handle_data(WispPacket packet);
 
   void send_close(uint8_t reason) {
     auto close_serialized = ClosePacket(reason).serialize();
@@ -75,50 +90,67 @@ public:
     ws->send(
         std::string_view((char *)serialized.first.get(), serialized.second));
   }
-
-  void force_close() {
-    ws->close();
-    delete this;
+  void send_data(uint32_t stream_id, char *data, size_t len) {
+    auto serialized =
+        WispPacket(PACKET_DATA, 0, (unsigned char *)data, len).serialize();
+    ws->send(
+        std::string_view((char *)serialized.first.get(), serialized.second));
   }
+
+  void send_continue(uint32_t buffer, uint32_t stream_id) {
+    auto continue_serialized = ContinuePacket(buffer).serialize();
+    auto serialized =
+        WispPacket(PACKET_CONTINUE, stream_id, continue_serialized.first.get(),
+                   continue_serialized.second)
+            .serialize();
+
+    ws->send(
+        std::string_view((char *)serialized.first.get(), serialized.second));
+  }
+
+  void force_close();
+
+  std::shared_mutex stream_lock;
+  std::unordered_map<uint32_t, SocketStreamData> streams;
+  void close_stream(uint32_t stream_id);
 
 private:
   SystemWatcher *parent;
+  SystemInterface *interface;
   WebSocket *ws;
 
   // wisp info
   bool received_info = false;
-  std::unordered_map<uint32_t, SocketStream> streams;
 };
 
 class SystemWatcher {
 public:
+  std::mutex watched_sockets_lock;
   std::unordered_map<size_t, WebSocketManager *> watched_sockets;
-  SystemWatcher() { watcher = std::thread(SystemWatcher::start_thread, this); }
+
+  SystemWatcher() : loop(uWS::Loop::get()) {
+    watcher = std::thread(SystemWatcher::start_thread, this);
+  }
   ~SystemWatcher() {
     // clean watcher
-    quit_watcher.lock();
+
+    printf("deconstructing\n");
     deconstructing = true;
-    quit_watcher.unlock();
+    wake();
     watcher.join();
   }
 
-  void watch() {
-    while (true) {
-      // make killable
-      std::lock_guard guard(quit_watcher);
-      if (deconstructing) {
-        break;
-      }
-
-      // main loop
-      sched_yield();
-    }
-  }
+  void watch();
   static void start_thread(SystemWatcher *watcher) { watcher->watch(); }
+
+  // can be called by main thread
+  void wake() { epoll.wake(); }
+
+  EpollWrapper epoll;
 
 private:
   // for killing the other thread
-  std::mutex quit_watcher;
   std::thread watcher;
-  bool deconstructing = false;
+  std::atomic<bool> deconstructing = false;
+  uWS::Loop *loop;
 };

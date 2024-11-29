@@ -8,7 +8,7 @@
 #include <memory>
 #include <string_view>
 
-#define BUFFER_COUNT 10
+#define BUFFER_COUNT 127
 
 enum PacketType {
   PACKET_CONNECT = 0x01,
