@@ -19,7 +19,7 @@ bool interupted = false;
 // what does the int in this func do?
 void int_handler(int) { interupted = true; }
 
-void start_wisp_server() {
+void start_wisp_server(int port) {
   signal(SIGINT, int_handler);
 
   auto app = uWS::App().ws<PerSocketData>(
@@ -61,8 +61,8 @@ void start_wisp_server() {
                 }
 
            });
-  app.listen(9001,
-             [&app](us_listen_socket_t *listen_socket) {
+  app.listen(port,
+             [&app, port](us_listen_socket_t *listen_socket) {
                uWS::Loop::get()->addPostHandler(
                    NULL, [listen_socket, &app](uWS::Loop *) {
                      if (interupted) {
@@ -82,7 +82,7 @@ void start_wisp_server() {
                    });
 
                if (listen_socket) {
-                 printf("Listening to %i\n", 9001);
+                 printf("Listening to %i\n", port);
                } else {
                  printf("Failed to bind\n");
                }

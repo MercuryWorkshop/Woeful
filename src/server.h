@@ -1,3 +1,3 @@
 #pragma once
 
-void start_wisp_server();
+void start_wisp_server(int port);
