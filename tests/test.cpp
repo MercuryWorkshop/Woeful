@@ -1,5 +1,5 @@
 #include "../src/packets.h"
-#include "../src/systemInterface.hpp"
+#include "../src/systemInterface.h"
 #include "gtest/gtest.h"
 #include <arpa/inet.h>
 #include <atomic>

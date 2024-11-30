@@ -72,7 +72,9 @@ public:
     auto ret = connect(fd, dns->get()->ai_addr, dns->get()->ai_addrlen);
     if (ret != 0) {
       int errsv = errno;
+#ifdef DEBUG
       printf("failed to connect %d\n", errsv);
+#endif
       close(fd);
       return {};
     }

@@ -1,6 +1,6 @@
 #pragma once
 #include "packets.h"
-#include "systemInterface.hpp"
+#include "systemInterface.h"
 #include <cstddef>
 #include <cstdint>
 #include <cstdio>
