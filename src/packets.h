@@ -1,14 +1,13 @@
 #pragma once
 
-#include <algorithm>
 #include <cstddef>
 #include <cstdint>
 #include <cstdlib>
 #include <cstring>
 #include <memory>
-#include <string_view>
 
 #define BUFFER_COUNT 127
+#define SEGMENT_SIZE 1024
 
 enum PacketType {
   PACKET_CONNECT = 0x01,

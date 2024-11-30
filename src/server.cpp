@@ -1,18 +1,14 @@
-#include "packets.h"
 #include "websocketManager.h"
 #include <cstddef>
 #include <cstdio>
 #include <cstdlib>
 #include <libusockets.h>
-#include <queue>
 #include <signal.h>
 #include <string_view>
 #include <sys/socket.h>
-#include <system_error>
-#include <thread>
 #include <uWebSockets/App.h>
 #include <uWebSockets/Loop.h>
-#include <unordered_map>
+#include <uWebSockets/WebSocketProtocol.h>
 #include <uv.h>
 
 size_t id = 0;
@@ -20,7 +16,8 @@ SystemWatcher system_watcher;
 SystemInterface system_interface((char *)"1.1.1.1");
 
 bool interupted = false;
-void int_handler(int dummy) { interupted = true; }
+// what does the int in this func do?
+void int_handler(int) { interupted = true; }
 
 void start_wisp_server() {
   signal(SIGINT, int_handler);
@@ -38,13 +35,19 @@ void start_wisp_server() {
             .upgrade = nullptr,
             .open =
                 [](uWS::WebSocket<false, true, PerSocketData> *ws) {
-                  auto manager = new WebSocketManager(ws, id++, &system_watcher,
-                                                      &system_interface);
+                  new WebSocketManager(ws, id++, &system_watcher,
+                                       &system_interface);
                 },
 
             .message =
                 [](uWS::WebSocket<false, true, PerSocketData> *ws,
-                   std::string_view message, uWS::OpCode opCode) {
+                   std::string_view message, uWS::OpCode op_code) {
+                  if (op_code != uWS::OpCode::BINARY) {
+      // TODO: handle error
+#ifdef DEBUG
+                    printf("websocket packet was not binary\n");
+#endif
+                  }
                   ws->getUserData()->manager->receive(message);
                 },
             .close =

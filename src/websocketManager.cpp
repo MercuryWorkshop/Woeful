@@ -141,9 +141,9 @@ void SystemWatcher::watch() {
         bool to_close = false;
         std::vector<char> *combined_buffer = new std::vector<char>{};
         do {
-          char buf[256];
+          char buf[SEGMENT_SIZE];
 
-          count = read(events[i].data.fd, buf, 256);
+          count = read(events[i].data.fd, buf, SEGMENT_SIZE);
 
           if (count == 0) {
             to_close = true;
@@ -207,8 +207,6 @@ void SystemWatcher::watch() {
           delete combined_buffer;
         });
       }
-
-      // main shit
     }
   }
 }
