@@ -52,6 +52,7 @@ void start_wisp_server() {
                    std::string_view error) {
                   printf("got closed\n");
                   ws->getUserData()->manager->force_close();
+                  delete ws->getUserData()->manager;
                 }
 
            });
@@ -60,7 +61,9 @@ void start_wisp_server() {
                uWS::Loop::get()->addPostHandler(
                    NULL, [listen_socket, &app](uWS::Loop *) {
                      if (interupted) {
+                       printf("killer app\n");
                        app.close();
+                       interupted = false; // dont DUP! closing
                        return;
                      }
                      // TODO: create equivelent log

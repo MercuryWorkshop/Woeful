@@ -2,6 +2,7 @@
 #include "websocketManager.hpp"
 #include "packets.h"
 #include <algorithm>
+#include <cerrno>
 #include <cstddef>
 #include <cstdint>
 #include <cstdio>
@@ -11,6 +12,7 @@
 #include <shared_mutex>
 #include <string_view>
 #include <sys/epoll.h>
+#include <sys/socket.h>
 #include <tuple>
 #include <unistd.h>
 #include <vector>
@@ -18,17 +20,11 @@
 WebSocketManager::WebSocketManager(WebSocket *ws, size_t id,
                                    SystemWatcher *watcher,
                                    SystemInterface *interface)
-    : ws(ws), parent(watcher), interface(interface) {
+    : ws(ws), parent(watcher), interface(interface), socket_id(id) {
   auto user_data = ws->getUserData();
   user_data->id = id;
   user_data->manager = this;
 
-  // initial info
-  auto info_serialized = InfoPacket(2, 0, {}, 0).serialize();
-  auto serialized = WispPacket(PACKET_INFO, 0, info_serialized.first.get(),
-                               info_serialized.second)
-                        .serialize();
-  ws->send(std::string_view((char *)serialized.first.get(), serialized.second));
   // initial continue
   send_continue(BUFFER_COUNT, 0);
 
@@ -39,23 +35,30 @@ void WebSocketManager::force_close() {
   printf("force closing\n");
   {
     std::unique_lock<std::shared_mutex> stream_gaurd(stream_lock);
+    std::vector<uint32_t> ids;
     for (auto stream : streams) {
-      close_stream(stream.first);
+      ids.push_back(stream.first);
     }
-
-    std::lock_guard gaurd(parent->watched_sockets_lock);
-    parent->watched_sockets.erase(ws->getUserData()->id);
+    for (auto id : ids) {
+      close_stream(id, true);
+    }
   }
-  delete this;
 }
 
-WebSocketManager::~WebSocketManager() {}
-void WebSocketManager::close_stream(uint32_t stream_id) {
-  // std::unique_lock<std::shared_mutex> gaurd(stream_lock);
-  parent->epoll.erase_fd(streams[stream_id].fd);
+WebSocketManager::~WebSocketManager() {
+  std::lock_guard gaurd(parent->watched_sockets_lock);
+  parent->watched_sockets.erase(socket_id);
+}
+void WebSocketManager::close_stream(uint32_t stream_id, bool remove_poll) {
+  send_close(0x02, stream_id);
+
+  if (remove_poll)
+    parent->epoll.erase_fd(streams[stream_id].fd);
+
   // parent->wake();
   close(streams[stream_id].fd);
-  // streams.erase(stream_id);
+  streams.erase(stream_id);
+  printf("closed stream\n");
 }
 
 std::optional<int> WebSocketManager::handle_connect(WispPacket packet) {
@@ -127,20 +130,74 @@ void SystemWatcher::watch() {
         continue;
       } else {
         ssize_t count;
-        std::vector<char> combined_buffer;
+        bool to_close = false;
+        std::vector<char> *combined_buffer = new std::vector<char>{};
         do {
           char buf[256];
+
+          int flags = fcntl(events[i].data.fd, F_GETFL, 0);
           count = read(events[i].data.fd, buf, 256);
 
-          if (count <= 0)
+          if (count == 0) {
+            to_close = true;
             break;
+          }
+          if (count < 0) {
+            if (errno == EAGAIN) {
+              break;
+            }
+            to_close = true;
+            break;
+          }
+
+          printf("segment %zd\n", count);
 
           std::vector<char> holding_buffer(buf, buf + count);
-          combined_buffer.insert(combined_buffer.end(), holding_buffer.begin(),
-                                 holding_buffer.end());
-        } while (count > 0);
+          combined_buffer->insert(combined_buffer->end(),
+                                  holding_buffer.begin(), holding_buffer.end());
+        } while (true);
 
-        printf("message is %zu\n", combined_buffer.size());
+        // this mess finds the socket and string to send it
+        std::lock_guard sockets_lock(watched_sockets_lock);
+        for (auto socket_manager : watched_sockets) {
+          std::shared_lock<std::shared_mutex> stream_lock(
+              socket_manager.second->stream_lock);
+
+          for (auto stream : socket_manager.second->streams) {
+            if (stream.second.fd == events[i].data.fd) {
+
+              uint32_t stream_id = stream.first;
+              size_t socket_id = socket_manager.first;
+
+              if (to_close) {
+                epoll.erase_fd(events[i].data.fd);
+              }
+
+              printf("dispatched %zu\n", combined_buffer->size());
+
+              loop->defer([stream_id, socket_id, this, combined_buffer,
+                           to_close]() {
+                printf("sent data %zu\n", combined_buffer->size());
+
+                std::lock_guard sockets_lock(watched_sockets_lock);
+
+                if (watched_sockets.find(socket_id) != watched_sockets.end()) {
+                  std::shared_lock<std::shared_mutex> stream_lock(
+                      watched_sockets[socket_id]->stream_lock);
+
+                  watched_sockets[socket_id]->send_data(
+                      stream_id, combined_buffer->data(),
+                      combined_buffer->size());
+                  delete combined_buffer;
+
+                  if (to_close) {
+                    watched_sockets[socket_id]->close_stream(stream_id, false);
+                  }
+                }
+              });
+            }
+          }
+        }
       }
 
       // main shit

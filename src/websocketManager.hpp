@@ -40,14 +40,27 @@ public:
     WispPacket packet((unsigned char *)view.data(), view.size());
     // TODO: log equivelent printf("Got packet type %i\n", packet.packet_type);
     if (packet.packet_type == PACKET_INFO) {
-      // TODO: proccess info packet info
-      received_info = true;
-    } else {
-      if (!received_info) {
-        // TODO: report error;
-        send_close(0x04);
+      printf("got info\n");
+      if (!info_valid) {
+        send_close(0x04, 0);
         ws->close();
         return;
+      }
+      // TODO: proccess info packet info
+
+      // initial info
+      auto info_serialized = InfoPacket(2, 0, {}, 0).serialize();
+      auto serialized = WispPacket(PACKET_INFO, 0, info_serialized.first.get(),
+                                   info_serialized.second)
+                            .serialize();
+      ws->send(
+          std::string_view((char *)serialized.first.get(), serialized.second));
+
+      received_info = true;
+      info_valid = false;
+    } else {
+      if (!received_info && info_valid) {
+        info_valid = false;
       }
       switch (packet.packet_type) {
 
@@ -55,12 +68,12 @@ public:
         auto ret = handle_connect(packet);
         if (!ret.has_value()) {
           // failed to create stream error
-          send_close(0x41);
-          ws->close();
+          send_close(0x41, packet.stream_id);
         }
         break;
       }
       case PACKET_DATA: {
+        printf("got data\n");
         if (!handle_data(packet).has_value()) {
           // TODO: handle error
         }
@@ -82,17 +95,19 @@ public:
   std::optional<int> handle_connect(WispPacket packet);
   std::optional<uint32_t> handle_data(WispPacket packet);
 
-  void send_close(uint8_t reason) {
+  void send_close(uint8_t reason, uint32_t stream_id) {
     auto close_serialized = ClosePacket(reason).serialize();
-    auto serialized = WispPacket(PACKET_CLOSE, 0, close_serialized.first.get(),
-                                 close_serialized.second)
-                          .serialize();
+    auto serialized =
+        WispPacket(PACKET_CLOSE, stream_id, close_serialized.first.get(),
+                   close_serialized.second)
+            .serialize();
     ws->send(
         std::string_view((char *)serialized.first.get(), serialized.second));
   }
   void send_data(uint32_t stream_id, char *data, size_t len) {
     auto serialized =
-        WispPacket(PACKET_DATA, 0, (unsigned char *)data, len).serialize();
+        WispPacket(PACKET_DATA, stream_id, (unsigned char *)data, len)
+            .serialize();
     ws->send(
         std::string_view((char *)serialized.first.get(), serialized.second));
   }
@@ -112,15 +127,19 @@ public:
 
   std::shared_mutex stream_lock;
   std::unordered_map<uint32_t, SocketStreamData> streams;
-  void close_stream(uint32_t stream_id);
+  void close_stream(uint32_t stream_id, bool remove_poll);
 
 private:
   SystemWatcher *parent;
   SystemInterface *interface;
   WebSocket *ws;
 
+  size_t socket_id;
+
   // wisp info
   bool received_info = false;
+  // eg: dont send info packets mid stream
+  bool info_valid = true;
 };
 
 class SystemWatcher {

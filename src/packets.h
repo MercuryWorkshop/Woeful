@@ -117,10 +117,19 @@ struct ConnectPacket {
     unsigned char *hostname_ptr = src + header_size;
 
     destination_hostname_len = src_length - header_size;
+
+    if (src[src_length - 1] != 0) { // hostname must be null terminated
+      destination_hostname_len += 1;
+    }
+
     destination_hostname =
         std::make_unique<unsigned char[]>(destination_hostname_len);
 
-    memcpy(destination_hostname.get(), hostname_ptr, destination_hostname_len);
+    if (src[src_length - 1] != 0) { // hostname must be null terminated
+      destination_hostname.get()[destination_hostname_len - 1] = 0;
+    }
+
+    memcpy(destination_hostname.get(), hostname_ptr, src_length - header_size);
   }
   // TODO: create server side generater, although it is only supposed to be
   // generated client side
