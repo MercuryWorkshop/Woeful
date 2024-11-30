@@ -17,13 +17,6 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(expected)
 
-FetchContent_Declare(
-    mdns 
-    GIT_REPOSITORY https://github.com/mjansson/mdns.git
-    GIT_TAG main
-)
-FetchContent_MakeAvailable(mdns)
-
 target_link_libraries(woefull argparse usockets z)
 
 add_custom_command(TARGET woefull POST_BUILD

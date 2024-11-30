@@ -15,7 +15,7 @@ add_executable(tests
 )
 
 target_include_directories(tests PUBLIC ${CMAKE_SOURCE_DIR}/src/)
-target_link_libraries(tests ${GTEST_LIBRARIES} GTest::gtest_main unbound)
+target_link_libraries(tests ${GTEST_LIBRARIES} GTest::gtest_main)
 
 include(GoogleTest)
 gtest_discover_tests(tests)

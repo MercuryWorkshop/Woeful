@@ -143,7 +143,6 @@ void SystemWatcher::watch() {
         do {
           char buf[256];
 
-          int flags = fcntl(events[i].data.fd, F_GETFL, 0);
           count = read(events[i].data.fd, buf, 256);
 
           if (count == 0) {
@@ -167,51 +166,46 @@ void SystemWatcher::watch() {
                                   holding_buffer.begin(), holding_buffer.end());
         } while (true);
 
-        // this mess finds the socket and string to send it
-        std::lock_guard sockets_lock(watched_sockets_lock);
-        for (auto socket_manager : watched_sockets) {
-          std::shared_lock<std::shared_mutex> stream_lock(
-              socket_manager.second->stream_lock);
-
-          for (auto stream : socket_manager.second->streams) {
-            if (stream.second.fd == events[i].data.fd) {
-
-              uint32_t stream_id = stream.first;
-              size_t socket_id = socket_manager.first;
-
-              if (to_close) {
-                epoll.erase_fd(events[i].data.fd);
-              }
+        // we cant wait on the other thread to close the stream
+        if (to_close) {
+          epoll.erase_fd(events[i].data.fd);
+        }
 
 #ifdef DEBUG
-              printf("dispatched %zu\n", combined_buffer->size());
+        printf("dispatched %zu\n", combined_buffer->size());
 #endif
 
-              loop->defer([stream_id, socket_id, this, combined_buffer,
-                           to_close]() {
+        int fd = events[i].data.fd;
+
+        // this mess finds the socket and string to send it
+        loop->defer([this, combined_buffer, to_close, fd]() {
+          std::lock_guard sockets_lock(watched_sockets_lock);
+          for (auto socket_manager : watched_sockets) {
+            std::shared_lock<std::shared_mutex> stream_lock(
+                socket_manager.second->stream_lock);
+
+            for (auto stream : socket_manager.second->streams) {
+              if (stream.second.fd == fd) {
+
 #ifdef DEBUG
                 printf("sent data %zu\n", combined_buffer->size());
 #endif
 
-                std::lock_guard sockets_lock(watched_sockets_lock);
+                std::shared_lock<std::shared_mutex> stream_lock(
+                    socket_manager.second->stream_lock);
 
-                if (watched_sockets.find(socket_id) != watched_sockets.end()) {
-                  std::shared_lock<std::shared_mutex> stream_lock(
-                      watched_sockets[socket_id]->stream_lock);
+                socket_manager.second->send_data(stream.first,
+                                                 combined_buffer->data(),
+                                                 combined_buffer->size());
 
-                  watched_sockets[socket_id]->send_data(
-                      stream_id, combined_buffer->data(),
-                      combined_buffer->size());
-                  delete combined_buffer;
-
-                  if (to_close) {
-                    watched_sockets[socket_id]->close_stream(stream_id, false);
-                  }
+                if (to_close) {
+                  socket_manager.second->close_stream(stream.first, false);
                 }
-              });
+              }
             }
           }
-        }
+          delete combined_buffer;
+        });
       }
 
       // main shit
