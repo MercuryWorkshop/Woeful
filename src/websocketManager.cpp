@@ -32,7 +32,9 @@ WebSocketManager::WebSocketManager(WebSocket *ws, size_t id,
   parent->watched_sockets[id] = this;
 }
 void WebSocketManager::force_close() {
+#ifdef DEBUG
   printf("force closing\n");
+#endif
   {
     std::unique_lock<std::shared_mutex> stream_gaurd(stream_lock);
     std::vector<uint32_t> ids;
@@ -58,14 +60,18 @@ void WebSocketManager::close_stream(uint32_t stream_id, bool remove_poll) {
   // parent->wake();
   close(streams[stream_id].fd);
   streams.erase(stream_id);
+#ifdef DEBUG
   printf("closed stream\n");
+#endif
 }
 
 std::optional<int> WebSocketManager::handle_connect(WispPacket packet) {
   uint32_t stream_id = packet.stream_id;
   ConnectPacket connect_packet(packet.data.get(), packet.data_len);
   uint8_t stream_type = connect_packet.stream_type;
+#ifdef DEBUG
   printf("got connect %s\n", connect_packet.destination_hostname.get());
+#endif
 
   auto connection =
       interface->open_stream((char *)connect_packet.destination_hostname.get(),
@@ -124,7 +130,9 @@ void SystemWatcher::watch() {
     }
     for (int i = 0; i < event_count; i++) {
       if (events[i].data.fd == epoll.pipes[0]) {
+#ifdef DEBUG
         printf("woken\n");
+#endif
         char buf[10];
         read(events[i].data.fd, buf, 10);
         continue;
@@ -150,7 +158,9 @@ void SystemWatcher::watch() {
             break;
           }
 
+#ifdef DEBUG
           printf("segment %zd\n", count);
+#endif
 
           std::vector<char> holding_buffer(buf, buf + count);
           combined_buffer->insert(combined_buffer->end(),
@@ -173,11 +183,15 @@ void SystemWatcher::watch() {
                 epoll.erase_fd(events[i].data.fd);
               }
 
+#ifdef DEBUG
               printf("dispatched %zu\n", combined_buffer->size());
+#endif
 
               loop->defer([stream_id, socket_id, this, combined_buffer,
                            to_close]() {
+#ifdef DEBUG
                 printf("sent data %zu\n", combined_buffer->size());
+#endif
 
                 std::lock_guard sockets_lock(watched_sockets_lock);
 

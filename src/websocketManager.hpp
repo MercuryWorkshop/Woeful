@@ -40,7 +40,9 @@ public:
     WispPacket packet((unsigned char *)view.data(), view.size());
     // TODO: log equivelent printf("Got packet type %i\n", packet.packet_type);
     if (packet.packet_type == PACKET_INFO) {
+#ifdef DEBUG
       printf("got info\n");
+#endif
       if (!info_valid) {
         send_close(0x04, 0);
         ws->close();
@@ -73,7 +75,9 @@ public:
         break;
       }
       case PACKET_DATA: {
+#ifdef DEBUG
         printf("got data\n");
+#endif
         if (!handle_data(packet).has_value()) {
           // TODO: handle error
         }
@@ -153,7 +157,9 @@ public:
   ~SystemWatcher() {
     // clean watcher
 
+#ifdef DEBUG
     printf("deconstructing\n");
+#endif
     deconstructing = true;
     wake();
     watcher.join();

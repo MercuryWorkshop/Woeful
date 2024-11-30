@@ -50,7 +50,9 @@ void start_wisp_server() {
             .close =
                 [](uWS::WebSocket<false, true, PerSocketData> *ws, int val,
                    std::string_view error) {
+#ifdef DEBUG
                   printf("got closed\n");
+#endif
                   ws->getUserData()->manager->force_close();
                   delete ws->getUserData()->manager;
                 }
@@ -61,7 +63,9 @@ void start_wisp_server() {
                uWS::Loop::get()->addPostHandler(
                    NULL, [listen_socket, &app](uWS::Loop *) {
                      if (interupted) {
+#ifdef DEBUG
                        printf("killer app\n");
+#endif
                        app.close();
                        interupted = false; // dont DUP! closing
                        return;
@@ -75,10 +79,9 @@ void start_wisp_server() {
                    });
 
                if (listen_socket) {
-                 std::cout << "Listening on port " << 9001 << std::endl;
+                 printf("Listening to %i\n", 9001);
                } else {
-                 std::cout << "Failed to load certs or to bind to port"
-                           << std::endl;
+                 printf("Failed to bind\n");
                }
              })
       .run();
