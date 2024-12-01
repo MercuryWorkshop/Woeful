@@ -24,15 +24,16 @@ public:
 
   ~SystemInterface() {}
 
-  std::optional<std::shared_ptr<addrinfo>> resolve(char *hostname, char *port) {
+  std::optional<std::shared_ptr<addrinfo>> resolve(char *hostname, char *port,
+                                                   int sock_type) {
     struct addrinfo hints;
     struct addrinfo *result;
 
     memset(&hints, 0, sizeof(hints));
-    hints.ai_family = AF_UNSPEC;    /* Allow IPv4 or IPv6 */
-    hints.ai_socktype = SOCK_DGRAM; /* Datagram socket */
+    hints.ai_family = AF_UNSPEC;
+    hints.ai_socktype = sock_type;
     hints.ai_flags = 0;
-    hints.ai_protocol = 0; /* Any protocol */
+    hints.ai_protocol = 0;
 
     auto retval = getaddrinfo(hostname, port, &hints, &result);
 
@@ -59,7 +60,7 @@ public:
     }
 
     std::string port_str = std::to_string(port);
-    auto dns = resolve(hostname, (char *)port_str.c_str());
+    auto dns = resolve(hostname, (char *)port_str.c_str(), sock_type);
     if (!dns.has_value()) {
       return {};
     }

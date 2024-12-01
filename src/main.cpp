@@ -1,23 +1,23 @@
+#include "CLI/App.hpp"
+#include "CLI/CLI.hpp"
 #include "server.h"
 #include <cstdio>
 #include <cstdlib>
 #include <string>
 
-int main(int, char *[]) {
+int main(int argc, char *argv[]) {
+
+  CLI::App app;
+
   int num_port = 9001;
+  app.add_option("--port", num_port, "The port the server binds to.")
+      ->default_val(9001)
+      ->envname("PORT");
 
-  {
-    char *env_port = getenv("PORT");
-    if (env_port == NULL)
-      goto env_port_break;
+  app.description("Woeful is a C++ wisp server that might not suck.");
 
-    int converted_port = atoi(env_port);
-    if (converted_port == 0)
-      goto env_port_break;
-    num_port = converted_port;
-  }
+  CLI11_PARSE(app, argc, argv);
 
-env_port_break:
   // TODO: cli args
   start_wisp_server(num_port);
 }

@@ -12,8 +12,8 @@
 #include <uv.h>
 
 size_t id = 0;
-SystemWatcher system_watcher;
 SystemInterface system_interface((char *)"1.1.1.1");
+SystemWatcher system_watcher;
 
 bool interupted = false;
 // what does the int in this func do?

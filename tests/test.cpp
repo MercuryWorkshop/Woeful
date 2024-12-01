@@ -8,6 +8,7 @@
 #include <gtest/gtest.h>
 #include <netinet/in.h>
 #include <sys/epoll.h>
+#include <sys/socket.h>
 #include <unistd.h>
 
 TEST(WispPacket, Parsing) {
@@ -113,14 +114,16 @@ TEST(InfoPacket, Serializing) {
 TEST(SystemInterface, Resolution) {
   SystemInterface interface((char *)"1.1.1.1");
   {
-    auto res = interface.resolve((char *)"foxmoss.com", (char *)"80");
+    auto res =
+        interface.resolve((char *)"foxmoss.com", (char *)"80", SOCK_STREAM);
     EXPECT_EQ(
         strcmp(inet_ntoa(((struct sockaddr_in *)res->get()->ai_addr)->sin_addr),
                "205.185.125.167"),
         0);
   }
   {
-    auto res = interface.resolve((char *)"45.79.112.203", (char *)"4242");
+    auto res =
+        interface.resolve((char *)"45.79.112.203", (char *)"4242", SOCK_STREAM);
     EXPECT_EQ(
         strcmp(inet_ntoa(((struct sockaddr_in *)res->get()->ai_addr)->sin_addr),
                "45.79.112.203"),

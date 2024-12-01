@@ -6,10 +6,13 @@ add_executable(woefull
 
 include(FetchContent)
 FetchContent_Declare(
-    argparse
-    GIT_REPOSITORY https://github.com/p-ranav/argparse.git
+    cli11_proj
+    QUIET
+    GIT_REPOSITORY https://github.com/CLIUtils/CLI11.git
+    GIT_TAG main
 )
-FetchContent_MakeAvailable(argparse)
+
+FetchContent_MakeAvailable(cli11_proj)
 
 FetchContent_Declare(
     expected 
@@ -17,7 +20,7 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(expected)
 
-target_link_libraries(woefull argparse usockets z)
+target_link_libraries(woefull PRIVATE usockets z CLI11::CLI11)
 
 add_custom_command(TARGET woefull POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy
