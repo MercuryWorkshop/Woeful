@@ -6,12 +6,15 @@
 #include <cstdio>
 #include <mutex>
 #include <sched.h>
+#include <semaphore>
 #include <shared_mutex>
 #include <string_view>
 #include <thread>
 #include <uWebSockets/App.h>
 #include <unistd.h>
 #include <unordered_map>
+
+#define MAX_BACKPRESSURE 100 * 1024 * 1024
 
 class WebSocketManager;
 class SystemWatcher;
@@ -108,11 +111,11 @@ public:
     ws->send(
         std::string_view((char *)serialized.first.get(), serialized.second));
   }
-  void send_data(uint32_t stream_id, char *data, size_t len) {
+  WebSocket::SendStatus send_data(uint32_t stream_id, char *data, size_t len) {
     auto serialized =
         WispPacket(PACKET_DATA, stream_id, (unsigned char *)data, len)
             .serialize();
-    ws->send(
+    return ws->send(
         std::string_view((char *)serialized.first.get(), serialized.second));
   }
 
@@ -127,11 +130,22 @@ public:
         std::string_view((char *)serialized.first.get(), serialized.second));
   }
 
+  void update_streams() {
+    std::shared_lock<std::shared_mutex> gaurd(stream_lock);
+    for (auto stream : streams) {
+      if (stream.second.buffer == 0) {
+        stream.second.buffer = BUFFER_COUNT;
+        send_continue(BUFFER_COUNT, stream.first);
+      }
+    }
+  }
   void force_close();
 
   std::shared_mutex stream_lock;
   std::unordered_map<uint32_t, SocketStreamData> streams;
   void close_stream(uint32_t stream_id, bool remove_poll);
+
+  std::atomic<bool> has_backpressure = false;
 
 private:
   SystemWatcher *parent;

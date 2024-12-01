@@ -23,42 +23,53 @@ void start_wisp_server(int port) {
   signal(SIGINT, int_handler);
 
   auto app = uWS::App().ws<PerSocketData>(
-      "*", {.compression = uWS::CompressOptions(uWS::DEDICATED_COMPRESSOR_4KB |
-                                                uWS::DEDICATED_DECOMPRESSOR),
-            .maxPayloadLength = 100 * 1024 * 1024,
-            .idleTimeout = 16,
-            .maxBackpressure = 100 * 1024 * 1024,
-            .closeOnBackpressureLimit = false,
-            .resetIdleTimeoutOnSend = false,
-            .sendPingsAutomatically = true,
+      "*", {
+               .compression = uWS::CompressOptions(
+                   uWS::DEDICATED_COMPRESSOR_4KB | uWS::DEDICATED_DECOMPRESSOR),
+               .maxPayloadLength = 100 * 1024 * 1024,
+               .idleTimeout = 16,
+               .maxBackpressure = MAX_BACKPRESSURE,
+               .closeOnBackpressureLimit = false,
+               .resetIdleTimeoutOnSend = false,
+               .sendPingsAutomatically = true,
 
-            .upgrade = nullptr,
-            .open =
-                [](uWS::WebSocket<false, true, PerSocketData> *ws) {
-                  new WebSocketManager(ws, id++, &system_watcher,
-                                       &system_interface);
-                },
+               .upgrade = nullptr,
+               .open =
+                   [](uWS::WebSocket<false, true, PerSocketData> *ws) {
+                     new WebSocketManager(ws, id++, &system_watcher,
+                                          &system_interface);
+                   },
 
-            .message =
-                [](uWS::WebSocket<false, true, PerSocketData> *ws,
-                   std::string_view message, uWS::OpCode op_code) {
-                  if (op_code != uWS::OpCode::BINARY) {
+               .message =
+                   [](uWS::WebSocket<false, true, PerSocketData> *ws,
+                      std::string_view message, uWS::OpCode op_code) {
+                     if (op_code != uWS::OpCode::BINARY) {
       // TODO: handle error
 #ifdef DEBUG
-                    printf("websocket packet was not binary\n");
+                       printf("websocket packet was not binary\n");
 #endif
-                  }
-                  ws->getUserData()->manager->receive(message);
-                },
-            .close =
-                [](uWS::WebSocket<false, true, PerSocketData> *ws, int val,
-                   std::string_view error) {
+                     }
+                     ws->getUserData()->manager->receive(message);
+                   },
+               .drain =
+                   [](uWS::WebSocket<false, true, PerSocketData> *ws) {
 #ifdef DEBUG
-                  printf("got closed\n");
+                     printf("drained\n");
 #endif
-                  ws->getUserData()->manager->force_close();
-                  delete ws->getUserData()->manager;
-                }
+                     ws->getUserData()->manager->has_backpressure = false;
+                     ws->getUserData()->manager->has_backpressure.notify_all();
+                     ws->getUserData()->manager->update_streams();
+                     // TODO: deal with backpressure
+                   },
+               .close =
+                   [](uWS::WebSocket<false, true, PerSocketData> *ws, int val,
+                      std::string_view error) {
+#ifdef DEBUG
+                     printf("got closed\n");
+#endif
+                     ws->getUserData()->manager->force_close();
+                     delete ws->getUserData()->manager;
+                   },
 
            });
   app.listen(port,

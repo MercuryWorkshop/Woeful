@@ -6,6 +6,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstdio>
+#include <iterator>
 #include <mutex>
 #include <queue>
 #include <sched.h>
@@ -32,6 +33,8 @@ WebSocketManager::WebSocketManager(WebSocket *ws, size_t id,
   parent->watched_sockets[id] = this;
 }
 void WebSocketManager::force_close() {
+  has_backpressure = false;
+  has_backpressure.notify_all();
 #ifdef DEBUG
   printf("force closing\n");
 #endif
@@ -107,7 +110,7 @@ std::optional<uint32_t> WebSocketManager::handle_data(WispPacket packet) {
     streams[packet.stream_id].buffer--;
 
     // reset message buffer
-    if (streams[packet.stream_id].buffer == 0) {
+    if (streams[packet.stream_id].buffer == 0 && has_backpressure == false) {
       streams[packet.stream_id].buffer = BUFFER_COUNT;
       send_continue(BUFFER_COUNT, packet.stream_id);
     }
@@ -137,6 +140,36 @@ void SystemWatcher::watch() {
         read(events[i].data.fd, buf, 10);
         continue;
       } else {
+
+        int fd = events[i].data.fd;
+
+        // check for back pressure and wait
+        WebSocketManager *manager;
+        watched_sockets_lock.lock();
+        for (auto socket_manager : watched_sockets) {
+          std::shared_lock<std::shared_mutex> stream_lock(
+              socket_manager.second->stream_lock);
+
+          for (auto stream : socket_manager.second->streams) {
+            if (stream.second.fd == fd) {
+              manager = socket_manager.second;
+            }
+          }
+        }
+        if (!manager->has_backpressure) {
+          watched_sockets_lock.unlock();
+        } else {
+          // TODO: make sure that this doesnt cause a race condition
+          watched_sockets_lock.unlock();
+
+#ifdef DEBUG
+          printf("waiting for backpressure\n");
+          printf("released backpressure\n");
+#endif
+          // wait untill backpressure is false
+          manager->has_backpressure.wait(true);
+        }
+
         ssize_t count;
         bool to_close = false;
         std::vector<char> *combined_buffer = new std::vector<char>{};
@@ -157,10 +190,6 @@ void SystemWatcher::watch() {
             break;
           }
 
-#ifdef DEBUG
-          printf("segment %zd\n", count);
-#endif
-
           combined_buffer->insert(combined_buffer->end(), buf, buf + count);
         } while (true);
 
@@ -168,12 +197,6 @@ void SystemWatcher::watch() {
         if (to_close) {
           epoll.erase_fd(events[i].data.fd);
         }
-
-#ifdef DEBUG
-        printf("dispatched %zu\n", combined_buffer->size());
-#endif
-
-        int fd = events[i].data.fd;
 
         // this mess finds the socket and string to send it
         loop->defer([this, combined_buffer, to_close, fd]() {
@@ -192,9 +215,15 @@ void SystemWatcher::watch() {
                 std::shared_lock<std::shared_mutex> stream_lock(
                     socket_manager.second->stream_lock);
 
-                socket_manager.second->send_data(stream.first,
-                                                 combined_buffer->data(),
-                                                 combined_buffer->size());
+                if (socket_manager.second->send_data(stream.first,
+                                                     combined_buffer->data(),
+                                                     combined_buffer->size()) ==
+                    WebSocket::SendStatus::BACKPRESSURE) {
+#ifdef DEBUG
+                  printf("has backpressure\n");
+                  socket_manager.second->has_backpressure = true;
+#endif
+                }
 
                 if (to_close) {
                   socket_manager.second->close_stream(stream.first, false);
