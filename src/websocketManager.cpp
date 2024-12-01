@@ -161,9 +161,7 @@ void SystemWatcher::watch() {
           printf("segment %zd\n", count);
 #endif
 
-          std::vector<char> holding_buffer(buf, buf + count);
-          combined_buffer->insert(combined_buffer->end(),
-                                  holding_buffer.begin(), holding_buffer.end());
+          combined_buffer->insert(combined_buffer->end(), buf, buf + count);
         } while (true);
 
         // we cant wait on the other thread to close the stream
