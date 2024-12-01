@@ -1,4 +1,4 @@
-add_executable(woefull
+add_executable(woeful
   main.cpp
   server.cpp
   websocketManager.cpp
@@ -20,9 +20,11 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(expected)
 
-target_link_libraries(woefull PRIVATE usockets z CLI11::CLI11)
+target_link_libraries(woeful PRIVATE usockets z CLI11::CLI11)
 
-add_custom_command(TARGET woefull POST_BUILD
+install(TARGETS woeful RUNTIME DESTINATION bin)
+
+add_custom_command(TARGET woeful POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy
         ${CMAKE_BINARY_DIR}/compile_commands.json
         ${CMAKE_SOURCE_DIR}/compile_commands.json
