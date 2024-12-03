@@ -143,33 +143,6 @@ void SystemWatcher::watch() {
 
         int fd = events[i].data.fd;
 
-        // check for back pressure and wait
-        WebSocketManager *manager;
-        watched_sockets_lock.lock();
-        for (auto socket_manager : watched_sockets) {
-          std::shared_lock<std::shared_mutex> stream_lock(
-              socket_manager.second->stream_lock);
-
-          for (auto stream : socket_manager.second->streams) {
-            if (stream.second.fd == fd) {
-              manager = socket_manager.second;
-            }
-          }
-        }
-        if (!manager->has_backpressure) {
-          watched_sockets_lock.unlock();
-        } else {
-          // TODO: make sure that this doesnt cause a race condition
-          watched_sockets_lock.unlock();
-
-#ifdef DEBUG
-          printf("waiting for backpressure\n");
-          printf("released backpressure\n");
-#endif
-          // wait untill backpressure is false
-          manager->has_backpressure.wait(true);
-        }
-
         ssize_t count;
         bool to_close = false;
         std::vector<char> *combined_buffer = new std::vector<char>{};
@@ -215,13 +188,18 @@ void SystemWatcher::watch() {
                 std::shared_lock<std::shared_mutex> stream_lock(
                     socket_manager.second->stream_lock);
 
-                if (socket_manager.second->send_data(stream.first,
-                                                     combined_buffer->data(),
-                                                     combined_buffer->size()) ==
-                    WebSocket::SendStatus::BACKPRESSURE) {
+                auto ret = socket_manager.second->send_data(
+                    stream.first, combined_buffer->data(),
+                    combined_buffer->size());
+                if (ret == WebSocket::SendStatus::BACKPRESSURE) {
 #ifdef DEBUG
                   printf("has backpressure\n");
+#endif
                   socket_manager.second->has_backpressure = true;
+                }
+                if (ret == WebSocket::SendStatus::DROPPED) {
+#ifdef DEBUG
+                  printf("dropped\n");
 #endif
                 }
 

@@ -14,7 +14,8 @@
 #include <unistd.h>
 #include <unordered_map>
 
-#define MAX_BACKPRESSURE 100 * 1024 * 1024
+#define MAX_BACKPRESSURE 1024 * 1024 * 1024
+#define MAX_PACKET_SIZE 10 * 1024 * 1024
 
 class WebSocketManager;
 class SystemWatcher;

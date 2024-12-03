@@ -43,12 +43,12 @@ void start_wisp_server(int port) {
                .message =
                    [](uWS::WebSocket<false, true, PerSocketData> *ws,
                       std::string_view message, uWS::OpCode op_code) {
-                     if (op_code != uWS::OpCode::BINARY) {
-      // TODO: handle error
 #ifdef DEBUG
+                     if (op_code != uWS::OpCode::BINARY) {
+                       // TODO: handle error
                        printf("websocket packet was not binary\n");
-#endif
                      }
+#endif
                      ws->getUserData()->manager->receive(message);
                    },
                .drain =
@@ -59,7 +59,6 @@ void start_wisp_server(int port) {
                      ws->getUserData()->manager->has_backpressure = false;
                      ws->getUserData()->manager->has_backpressure.notify_all();
                      ws->getUserData()->manager->update_streams();
-                     // TODO: deal with backpressure
                    },
                .close =
                    [](uWS::WebSocket<false, true, PerSocketData> *ws, int val,
