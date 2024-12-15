@@ -8,6 +8,7 @@
 #include <cstdio>
 #include <iterator>
 #include <mutex>
+#include <poll.h>
 #include <queue>
 #include <sched.h>
 #include <shared_mutex>
@@ -103,8 +104,14 @@ std::optional<uint32_t> WebSocketManager::handle_data(WispPacket packet) {
   if (streams.find(packet.stream_id) == streams.end())
     return {};
 
-  write(streams.find(packet.stream_id)->second.fd, (void *)packet.data.get(),
-        packet.data_len);
+  struct pollfd pfd {
+    .fd = streams.find(packet.stream_id)->second.fd, .events = POLLOUT
+  };
+  int res = poll(&pfd, 1, -1);
+  if (res != -1) {
+    write(streams.find(packet.stream_id)->second.fd, (void *)packet.data.get(),
+          packet.data_len);
+  }
 
   if (streams[packet.stream_id].stream_type != 0x02) {
     streams[packet.stream_id].buffer--;
@@ -164,6 +171,9 @@ void SystemWatcher::watch() {
           }
 
           combined_buffer->insert(combined_buffer->end(), buf, buf + count);
+          if (combined_buffer->size() >= MAX_WS_FRAME) {
+            break;
+          }
         } while (true);
 
         // we cant wait on the other thread to close the stream
@@ -171,6 +181,7 @@ void SystemWatcher::watch() {
           epoll.erase_fd(events[i].data.fd);
         }
 
+        awaiting_requests++;
         // this mess finds the socket and string to send it
         loop->defer([this, combined_buffer, to_close, fd]() {
           std::lock_guard sockets_lock(watched_sockets_lock);
@@ -181,12 +192,9 @@ void SystemWatcher::watch() {
             for (auto stream : socket_manager.second->streams) {
               if (stream.second.fd == fd) {
 
-#ifdef DEBUG
-                printf("sent data %zu\n", combined_buffer->size());
-#endif
-
-                std::shared_lock<std::shared_mutex> stream_lock(
-                    socket_manager.second->stream_lock);
+                if (combined_buffer->size() > MAX_WS_FRAME) {
+                  printf("sent data is too big %zu\n", combined_buffer->size());
+                }
 
                 auto ret = socket_manager.second->send_data(
                     stream.first, combined_buffer->data(),

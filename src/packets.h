@@ -8,6 +8,7 @@
 
 #define BUFFER_COUNT 127
 #define SEGMENT_SIZE 1024
+#define MAX_WS_FRAME 63 * 1000000
 
 enum PacketType {
   PACKET_CONNECT = 0x01,

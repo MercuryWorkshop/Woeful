@@ -59,6 +59,8 @@ void start_wisp_server(int port) {
                      ws->getUserData()->manager->has_backpressure = false;
                      ws->getUserData()->manager->has_backpressure.notify_all();
                      ws->getUserData()->manager->update_streams();
+
+		     system_watcher.wake();
                    },
                .close =
                    [](uWS::WebSocket<false, true, PerSocketData> *ws, int val,

@@ -133,7 +133,7 @@ public:
 
   void update_streams() {
     std::shared_lock<std::shared_mutex> gaurd(stream_lock);
-    for (auto stream : streams) {
+    for (auto &stream : streams) {
       if (stream.second.buffer == 0) {
         stream.second.buffer = BUFFER_COUNT;
         send_continue(BUFFER_COUNT, stream.first);
@@ -187,6 +187,7 @@ public:
   void wake() { epoll.wake(); }
 
   EpollWrapper epoll;
+  std::atomic<size_t> awaiting_requests = 0;
 
 private:
   // for killing the other thread
