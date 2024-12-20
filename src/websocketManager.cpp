@@ -1,5 +1,6 @@
 
 #include "websocketManager.h"
+#include "BS_thread_pool.hpp"
 #include "packets.h"
 #include <algorithm>
 #include <cerrno>
@@ -21,8 +22,10 @@
 
 WebSocketManager::WebSocketManager(WebSocket *ws, size_t id,
                                    SystemWatcher *watcher,
-                                   SystemInterface *interface)
-    : ws(ws), parent(watcher), interface(interface), socket_id(id) {
+                                   SystemInterface *interface,
+                                   BS::thread_pool<BS::tp::none> *threadpool)
+    : ws(ws), parent(watcher), interface(interface), socket_id(id),
+      threadpool(threadpool) {
   auto user_data = ws->getUserData();
   user_data->id = id;
   user_data->manager = this;
@@ -104,14 +107,22 @@ std::optional<uint32_t> WebSocketManager::handle_data(WispPacket packet) {
   if (streams.find(packet.stream_id) == streams.end())
     return {};
 
-  struct pollfd pfd {
-    .fd = streams.find(packet.stream_id)->second.fd, .events = POLLOUT
-  };
-  int res = poll(&pfd, 1, -1);
-  if (res != -1) {
-    write(streams.find(packet.stream_id)->second.fd, (void *)packet.data.get(),
-          packet.data_len);
-  }
+  std::future<void> res = threadpool->submit_task([this, packet]() {
+    std::shared_lock<std::shared_mutex> gaurd(stream_lock);
+
+    int err = EAGAIN;
+    while (err == EAGAIN) {
+      err = 0;
+      struct pollfd pfd{.fd = streams.find(packet.stream_id)->second.fd,
+                        .events = POLLOUT};
+      int res = poll(&pfd, 1, -1);
+      if (res != -1) {
+        if (write(streams.find(packet.stream_id)->second.fd,
+                  (void *)packet.data.get(), packet.data_len) == -1)
+          err = errno;
+      }
+    }
+  });
 
   if (streams[packet.stream_id].stream_type != 0x02) {
     streams[packet.stream_id].buffer--;

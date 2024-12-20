@@ -4,6 +4,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <string>
+#include <thread>
 
 int main(int argc, char *argv[]) {
 
@@ -17,6 +18,11 @@ int main(int argc, char *argv[]) {
   app.description("Woeful is a C++ wisp server that might not suck.");
 
   CLI11_PARSE(app, argc, argv);
+
+  if (std::thread::hardware_concurrency() < 3) {
+    fprintf(stderr, "%s: Program requires at least 3 threads\n", argv[0]);
+    exit(-1);
+  }
 
   // TODO: cli args
   start_wisp_server(num_port);

@@ -23,6 +23,8 @@ struct WispPacket {
   uint32_t stream_id;
   std::shared_ptr<unsigned char[]> data;
   size_t data_len;
+
+  static void null_free(unsigned char *ptr) {}
   WispPacket(unsigned char *src, size_t src_length) {
     packet_type = *(uint8_t *)(src);
     stream_id = *(uint32_t *)(src + sizeof(uint8_t));
@@ -31,9 +33,10 @@ struct WispPacket {
     unsigned char *data_ptr = src + header_size;
 
     data_len = src_length - header_size;
-    data = std::make_unique<unsigned char[]>(data_len);
 
-    memcpy(data.get(), data_ptr, data_len);
+    data = std::shared_ptr<unsigned char[]>(
+        data_ptr, null_free); // TODO: make hack less toxic, (this might not
+                              // need to be a shared ptr)
   }
   WispPacket(uint8_t packet_type, uint32_t stream_id, unsigned char *data_src,
              size_t data_len)
@@ -43,8 +46,8 @@ struct WispPacket {
   }
   WispPacket(uint8_t packet_type, uint32_t stream_id,
              std::shared_ptr<unsigned char[]> &data_src, size_t data_len)
-      : packet_type(packet_type), stream_id(stream_id), data_len(data_len),
-        data(std::move(data_src)) {}
+      : packet_type(packet_type), stream_id(stream_id),
+        data(std::move(data_src)), data_len(data_len) {}
   ~WispPacket() {}
 
   std::pair<std::shared_ptr<unsigned char[]>, size_t> serialize() {

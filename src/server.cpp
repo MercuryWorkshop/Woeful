@@ -1,3 +1,4 @@
+#include "BS_thread_pool.hpp"
 #include "websocketManager.h"
 #include <cstddef>
 #include <cstdio>
@@ -9,11 +10,11 @@
 #include <uWebSockets/App.h>
 #include <uWebSockets/Loop.h>
 #include <uWebSockets/WebSocketProtocol.h>
-#include <uv.h>
 
 size_t id = 0;
 SystemInterface system_interface((char *)"1.1.1.1");
 SystemWatcher system_watcher;
+BS::thread_pool threadpool(THREAD_COUNT);
 
 bool interupted = false;
 // what does the int in this func do?
@@ -37,7 +38,7 @@ void start_wisp_server(int port) {
                .open =
                    [](uWS::WebSocket<false, true, PerSocketData> *ws) {
                      new WebSocketManager(ws, id++, &system_watcher,
-                                          &system_interface);
+                                          &system_interface, &threadpool);
                    },
 
                .message =
@@ -60,7 +61,7 @@ void start_wisp_server(int port) {
                      ws->getUserData()->manager->has_backpressure.notify_all();
                      ws->getUserData()->manager->update_streams();
 
-		     system_watcher.wake();
+                     system_watcher.wake();
                    },
                .close =
                    [](uWS::WebSocket<false, true, PerSocketData> *ws, int val,

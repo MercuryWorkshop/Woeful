@@ -1,4 +1,5 @@
 #pragma once
+#include "BS_thread_pool.hpp"
 #include "packets.h"
 #include "systemInterface.h"
 #include <cstddef>
@@ -16,6 +17,8 @@
 
 #define MAX_BACKPRESSURE 1024 * 1024 * 1024
 #define MAX_PACKET_SIZE 10 * 1024 * 1024
+
+const size_t THREAD_COUNT = std::thread::hardware_concurrency() - 2;
 
 class WebSocketManager;
 class SystemWatcher;
@@ -37,7 +40,8 @@ struct SocketStreamData {
 class WebSocketManager {
 public:
   WebSocketManager(WebSocket *ws, size_t id, SystemWatcher *watcher,
-                   SystemInterface *interface);
+                   SystemInterface *interface,
+                   BS::thread_pool<BS::tp::none> *threadpool);
   ~WebSocketManager();
 
   void receive(std::string_view view) {
@@ -79,7 +83,7 @@ public:
         break;
       }
       case PACKET_DATA: {
-#ifdef DEBUG
+#ifdef DEBUG1
         printf("got data\n");
 #endif
         if (!handle_data(packet).has_value()) {
@@ -152,6 +156,7 @@ private:
   SystemWatcher *parent;
   SystemInterface *interface;
   WebSocket *ws;
+  BS::thread_pool<BS::tp::none> *threadpool;
 
   size_t socket_id;
 
