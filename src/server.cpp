@@ -9,6 +9,7 @@
 #include <sys/socket.h>
 #include <uWebSockets/App.h>
 #include <uWebSockets/Loop.h>
+#include <uWebSockets/PerMessageDeflate.h>
 #include <uWebSockets/WebSocketProtocol.h>
 
 size_t id = 0;
@@ -25,8 +26,7 @@ void start_wisp_server(int port) {
 
   auto app = uWS::App().ws<PerSocketData>(
       "*", {
-               .compression = uWS::CompressOptions(
-                   uWS::DEDICATED_COMPRESSOR_4KB | uWS::DEDICATED_DECOMPRESSOR),
+               .compression = uWS::CompressOptions(uWS::DISABLED),
                .maxPayloadLength = 100 * 1024 * 1024,
                .idleTimeout = 16,
                .maxBackpressure = MAX_BACKPRESSURE,
