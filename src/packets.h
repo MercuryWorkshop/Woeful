@@ -7,7 +7,7 @@
 #include <memory>
 
 #define BUFFER_COUNT 127
-#define SEGMENT_SIZE 1024
+#define SEGMENT_SIZE 1024 * 20
 #define MAX_WS_FRAME 1 * 1000000
 #define MAX_POSSIBLE_WS_FRAME 64 * 1000000
 
