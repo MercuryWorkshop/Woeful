@@ -113,8 +113,9 @@ std::optional<uint32_t> WebSocketManager::handle_data(WispPacket packet) {
     int err = EAGAIN;
     while (err == EAGAIN) {
       err = 0;
-      struct pollfd pfd{.fd = streams.find(packet.stream_id)->second.fd,
-                        .events = POLLOUT};
+      struct pollfd pfd {
+        .fd = streams.find(packet.stream_id)->second.fd, .events = POLLOUT
+      };
       int res = poll(&pfd, 1, -1);
       if (res != -1) {
         if (write(streams.find(packet.stream_id)->second.fd,
@@ -204,7 +205,9 @@ void SystemWatcher::watch() {
               if (stream.second.fd == fd) {
 
                 if (combined_buffer->size() > MAX_WS_FRAME) {
+#ifdef DEBUG
                   printf("sent data is too big %zu\n", combined_buffer->size());
+#endif
                 }
 
                 auto ret = socket_manager.second->send_data(
