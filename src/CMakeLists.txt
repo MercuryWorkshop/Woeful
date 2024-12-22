@@ -20,7 +20,14 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(expected)
 
-target_link_libraries(woeful PRIVATE usockets z CLI11::CLI11)
+FetchContent_Declare(
+    PcapPlusPlus 
+    URL https://github.com/seladb/PcapPlusPlus/releases/download/v24.09/pcapplusplus-24.09-ubuntu-22.04-gcc-11.4.0-x86_64.tar.gz
+)
+FetchContent_MakeAvailable(PcapPlusPlus)
+find_package(PcapPlusPlus REQUIRED)
+
+target_link_libraries(woeful PRIVATE usockets z CLI11::CLI11 PcapPlusPlus::Pcap++)
 
 install(TARGETS woeful RUNTIME DESTINATION bin)
 

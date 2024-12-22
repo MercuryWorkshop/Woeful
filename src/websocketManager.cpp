@@ -68,7 +68,10 @@ void WebSocketManager::close_stream(uint32_t stream_id, bool remove_poll) {
   if (remove_poll)
     parent->epoll.erase_fd(streams[stream_id].fd);
 
-  // parent->wake();
+#ifdef PCAP
+  delete streams[stream_id].pcap;
+#endif
+
   close(streams[stream_id].fd);
   streams.erase(stream_id);
 #ifdef DEBUG
@@ -95,6 +98,10 @@ std::optional<int> WebSocketManager::handle_connect(WispPacket packet) {
                                   .id = stream_id,
                                   .fd = connection->first,
                                   .fd_info = connection->second};
+#ifdef PCAP
+  stream_data.open_pcap();
+#endif
+
   parent->epoll.push_fd(connection->first);
 
   // TODO: log connection
@@ -117,9 +124,12 @@ std::optional<uint32_t> WebSocketManager::handle_data(WispPacket packet) {
     int err = EAGAIN;
     while (err == EAGAIN) {
       err = 0;
-      struct pollfd pfd {
-        .fd = streams.find(packet.stream_id)->second.fd, .events = POLLOUT
-      };
+      struct pollfd pfd{.fd = streams.find(packet.stream_id)->second.fd,
+                        .events = POLLOUT};
+#ifdef PCAP
+      streams.find(packet.stream_id)
+          ->second.pcap->write_dummy_user(packet.data.get(), packet.data_len);
+#endif
       int res = poll(&pfd, 1, -1);
       if (res != -1) {
         if (write(streams.find(packet.stream_id)->second.fd,

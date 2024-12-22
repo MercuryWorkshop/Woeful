@@ -1,14 +1,20 @@
 #pragma once
 #include "BS_thread_pool.hpp"
 #include "packets.h"
+#include <iterator>
+#ifdef PCAP
+#include "pcap.hpp"
+#endif
 #include "systemInterface.h"
 #include <cstddef>
 #include <cstdint>
 #include <cstdio>
+#include <ctime>
 #include <mutex>
 #include <sched.h>
 #include <semaphore>
 #include <shared_mutex>
+#include <string>
 #include <string_view>
 #include <thread>
 #include <uWebSockets/App.h>
@@ -29,6 +35,10 @@ struct PerSocketData {
 };
 typedef uWS::WebSocket<false, true, PerSocketData> WebSocket;
 
+#ifdef PCAP
+static size_t pcap_iter = 0;
+#endif
+
 class SocketStreamData {
 public:
   uint8_t stream_type;
@@ -36,6 +46,15 @@ public:
   int fd;
   std::shared_ptr<addrinfo> fd_info;
   uint32_t buffer = BUFFER_COUNT;
+#ifdef PCAP
+  std::string pcap_file;
+  PcapInterface *pcap;
+  void open_pcap() {
+    pcap_file = std::to_string((unsigned)time(NULL)) + "." +
+                std::to_string(pcap_iter++) + ".woeful.pcap";
+    pcap = new PcapInterface(pcap_file);
+  }
+#endif
 };
 
 class WebSocketManager {
@@ -118,6 +137,11 @@ public:
         std::string_view((char *)serialized.first.get(), serialized.second));
   }
   WebSocket::SendStatus send_data(uint32_t stream_id, char *data, size_t len) {
+#ifdef PCAP
+    streams.find(stream_id)->second.pcap->write_dummy_target(
+        (const uint8_t *)data, len);
+#endif
+
     auto serialized =
         WispPacket(PACKET_DATA, stream_id, (unsigned char *)data, len)
             .serialize();
