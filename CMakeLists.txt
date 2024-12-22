@@ -11,9 +11,9 @@ endif()
 
 set(CMAKE_CXX_FLAGS "-Wall -Wextra")
 if(DOUBLE_DEBUG STREQUAL "OH_YEAH")
-  set(CMAKE_CXX_FLAGS_DEBUG  "-g -DDEBUG")
+  set(CMAKE_CXX_FLAGS_DEBUG  "-g -DDEBUG2")
 else()
-  set(CMAKE_CXX_FLAGS_DEBUG "-g")
+  set(CMAKE_CXX_FLAGS_DEBUG "-g -DDEBUG")
 endif()
 set(CMAKE_CXX_FLAGS_RELEASE "-O3")
 

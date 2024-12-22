@@ -29,7 +29,8 @@ struct PerSocketData {
 };
 typedef uWS::WebSocket<false, true, PerSocketData> WebSocket;
 
-struct SocketStreamData {
+class SocketStreamData {
+public:
   uint8_t stream_type;
   uint32_t id;
   int fd;

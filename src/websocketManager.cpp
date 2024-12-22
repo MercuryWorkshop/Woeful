@@ -43,10 +43,12 @@ void WebSocketManager::force_close() {
   printf("force closing\n");
 #endif
   {
-    std::unique_lock<std::shared_mutex> stream_gaurd(stream_lock);
     std::vector<uint32_t> ids;
-    for (auto stream : streams) {
-      ids.push_back(stream.first);
+    {
+      std::unique_lock<std::shared_mutex> stream_gaurd(stream_lock);
+      for (auto stream : streams) {
+        ids.push_back(stream.first);
+      }
     }
     for (auto id : ids) {
       close_stream(id, true);
@@ -59,6 +61,8 @@ WebSocketManager::~WebSocketManager() {
   parent->watched_sockets.erase(socket_id);
 }
 void WebSocketManager::close_stream(uint32_t stream_id, bool remove_poll) {
+  std::unique_lock<std::shared_mutex> stream_gaurd(stream_lock);
+
   send_close(0x02, stream_id);
 
   if (remove_poll)
@@ -196,6 +200,8 @@ void SystemWatcher::watch() {
         awaiting_requests++;
         // this mess finds the socket and string to send it
         loop->defer([this, combined_buffer, to_close, fd]() {
+          std::optional<uint32_t> found_id;
+          std::optional<WebSocketManager *> found_manager;
           std::lock_guard sockets_lock(watched_sockets_lock);
           for (auto socket_manager : watched_sockets) {
             std::shared_lock<std::shared_mutex> stream_lock(
@@ -225,12 +231,15 @@ void SystemWatcher::watch() {
 #endif
                 }
 
-                if (to_close) {
-                  socket_manager.second->close_stream(stream.first, false);
-                }
+                found_id = stream.first;
+                found_manager = socket_manager.second;
               }
             }
           }
+          if (to_close && found_id.has_value() && found_manager.has_value()) {
+            found_manager.value()->close_stream(found_id.value(), false);
+          }
+
           delete combined_buffer;
         });
       }
