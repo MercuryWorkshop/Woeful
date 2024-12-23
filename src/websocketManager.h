@@ -217,7 +217,6 @@ public:
   void wake() { epoll.wake(); }
 
   EpollWrapper epoll;
-  std::atomic<size_t> awaiting_requests = 0;
 
 private:
   // for killing the other thread

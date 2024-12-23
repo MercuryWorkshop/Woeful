@@ -178,7 +178,7 @@ void SystemWatcher::watch() {
 
         ssize_t count;
         bool to_close = false;
-        std::vector<char> *combined_buffer = new std::vector<char>{};
+        std::vector<char> *combined_buffer = new std::vector<char>();
         do {
           char buf[SEGMENT_SIZE];
 
@@ -197,9 +197,6 @@ void SystemWatcher::watch() {
           }
 
           combined_buffer->insert(combined_buffer->end(), buf, buf + count);
-          if (combined_buffer->size() >= MAX_WS_FRAME) {
-            break;
-          }
         } while (true);
 
         // we cant wait on the other thread to close the stream
@@ -207,7 +204,6 @@ void SystemWatcher::watch() {
           epoll.erase_fd(events[i].data.fd);
         }
 
-        awaiting_requests++;
         // this mess finds the socket and string to send it
         loop->defer([this, combined_buffer, to_close, fd]() {
           std::optional<uint32_t> found_id;

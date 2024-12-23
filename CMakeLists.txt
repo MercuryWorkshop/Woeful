@@ -9,7 +9,7 @@ if(NOT CMAKE_BUILD_TYPE)
 endif()
 
 
-set(CMAKE_CXX_FLAGS "-Wall -Wextra")
+set(CMAKE_CXX_FLAGS "-Wall -Wextra -Wno-error=unused-parameter")
 if(PCAP STREQUAL "OH_YEAH")
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DPCAP")
 endif()

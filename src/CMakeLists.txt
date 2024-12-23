@@ -20,14 +20,17 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(expected)
 
+# needs libpcap-dev
+set(PCAPPP_INSTALL "ON")
 FetchContent_Declare(
     PcapPlusPlus 
-    URL https://github.com/seladb/PcapPlusPlus/releases/download/v24.09/pcapplusplus-24.09-ubuntu-22.04-gcc-11.4.0-x86_64.tar.gz
+    GIT_REPOSITORY https://github.com/seladb/PcapPlusPlus.git
 )
 FetchContent_MakeAvailable(PcapPlusPlus)
-find_package(PcapPlusPlus REQUIRED)
 
-target_link_libraries(woeful PRIVATE usockets z CLI11::CLI11 PcapPlusPlus::Pcap++)
+include_directories(${PcapPlusPlus_SOURCE_DIR}/Packet++/header)
+
+target_link_libraries(woeful PRIVATE usockets z CLI11::CLI11 Pcap++ Packet++ Common++ pcap)
 
 install(TARGETS woeful RUNTIME DESTINATION bin)
 
