@@ -15,7 +15,11 @@ int main(int argc, char *argv[]) {
       ->default_val(9001)
       ->envname("PORT");
 
-  app.description("Woeful is a C++ wisp server that might not suck.");
+  std::string descr = "Woeful is a C++ wisp server that might not suck.";
+#ifdef PCAP
+  descr += "\nPCAP generation enabled!!";
+#endif
+  app.description(descr);
 
   CLI11_PARSE(app, argc, argv);
 

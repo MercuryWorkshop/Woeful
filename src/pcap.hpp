@@ -10,24 +10,49 @@
 #include <TcpLayer.h>
 #include <cstddef>
 #include <cstdint>
+#include <limits>
 #include <mutex>
+#include <netinet/in.h>
 #include <string>
 
 class PcapInterface {
 private:
   pcpp::PcapNgFileWriterDevice out;
   std::mutex writer_gaurd;
-  std::string user_ip = "192.168.0.1";
-  std::string target_ip = "10.0.0.1";
-  std::string user_mac = "00:50:43:11:22:33";
-  std::string target_mac = "aa:bb:cc:dd:ee:ff";
-  uint16_t user_port = 1000;
-  uint16_t target_port = 2000;
+  const std::string user_ip = "192.168.0.1";
+  const std::string target_ip = "10.0.0.1";
+  const std::string user_mac = "00:50:43:11:22:33";
+  const std::string target_mac = "aa:bb:cc:dd:ee:ff";
+  const uint16_t user_port = 1000;
+  const uint16_t target_port = 2000;
+
+  uint32_t user_sequence_number = 3;
+  uint32_t target_sequence_number = 3;
 
 public:
   PcapInterface(std::string file) : out(file) {
     out.open();
     printf("opening pcap %s\n", out.getFileName().c_str());
+
+    // https://en.wikipedia.org/wiki/Transmission_Control_Protocol#Protocol_operation
+    pcpp::TcpLayer syn = pcpp::TcpLayer(user_port, target_port);
+    syn.getTcpHeader()->synFlag = 1;
+    syn.getTcpHeader()->sequenceNumber = pcpp::hostToNet32(2);
+    write_tcp(user_mac, target_mac, user_ip, target_ip, syn, NULL, 0);
+
+    pcpp::TcpLayer syn_ack = pcpp::TcpLayer(target_port, user_port);
+    syn_ack.getTcpHeader()->synFlag = 1;
+    syn_ack.getTcpHeader()->ackFlag = 1;
+    syn_ack.getTcpHeader()->ackNumber = pcpp::hostToNet32(3);
+    syn_ack.getTcpHeader()->sequenceNumber = pcpp::hostToNet32(2);
+    write_tcp(target_mac, user_mac, target_ip, user_ip, syn_ack, NULL, 0);
+
+    pcpp::TcpLayer ack = pcpp::TcpLayer(user_port, target_port);
+    ack.getTcpHeader()->ackFlag = 1;
+    ack.getTcpHeader()->ackNumber = pcpp::hostToNet32(3);
+    ack.getTcpHeader()->sequenceNumber = pcpp::hostToNet32(3);
+    ack.getTcpHeader()->windowSize = std::numeric_limits<uint16_t>::max();
+    write_tcp(user_mac, target_mac, user_ip, target_ip, ack, NULL, 0);
   }
   ~PcapInterface() {
     out.close();
@@ -42,27 +67,46 @@ public:
                                pcpp::IPv4Address(dest));
     ipv4_layer.getIPv4Header()->ipId = pcpp::hostToNet16(2000);
     ipv4_layer.getIPv4Header()->timeToLive = 64;
-    pcpp::PayloadLayer payload_layer(data, len);
 
     pcpp::Packet packet(100);
     packet.addLayer(&ethernet_layer);
     packet.addLayer(&ipv4_layer);
     packet.addLayer(&tcp_layer);
+    pcpp::PayloadLayer payload_layer(data, len);
     packet.addLayer(&payload_layer);
     packet.computeCalculateFields();
-    std::lock_guard lock(writer_gaurd);
     out.writePacket(*packet.getRawPacket());
   }
   // data from user
-  pcpp::TcpLayer user_tcp_layer = pcpp::TcpLayer(user_port, target_port);
   void write_dummy_user(const uint8_t *data, size_t data_len) {
+    std::lock_guard lock(writer_gaurd);
+    pcpp::TcpLayer user_tcp_layer = pcpp::TcpLayer(user_port, target_port);
+    user_tcp_layer.getTcpHeader()->ackFlag = 1;
+    user_tcp_layer.getTcpHeader()->ackNumber =
+        pcpp::hostToNet32(target_sequence_number);
+    user_tcp_layer.getTcpHeader()->sequenceNumber =
+        pcpp::hostToNet32(user_sequence_number);
+    user_tcp_layer.getTcpHeader()->windowSize =
+        std::numeric_limits<uint16_t>::max();
     write_tcp(user_mac, target_mac, user_ip, target_ip, user_tcp_layer, data,
               data_len);
+
+    user_sequence_number += data_len;
   }
   // data from target
-  pcpp::TcpLayer target_tcp_layer = pcpp::TcpLayer(target_port, user_port);
   void write_dummy_target(const uint8_t *data, size_t data_len) {
-    write_tcp(target_mac, user_mac, target_ip, user_ip, user_tcp_layer, data,
+    std::lock_guard lock(writer_gaurd);
+    pcpp::TcpLayer target_tcp_layer = pcpp::TcpLayer(target_port, user_port);
+    target_tcp_layer.getTcpHeader()->ackFlag = 1;
+    target_tcp_layer.getTcpHeader()->ackNumber =
+        pcpp::hostToNet32(user_sequence_number);
+    target_tcp_layer.getTcpHeader()->sequenceNumber =
+        pcpp::hostToNet32(target_sequence_number);
+    target_tcp_layer.getTcpHeader()->windowSize =
+        std::numeric_limits<uint16_t>::max();
+
+    write_tcp(target_mac, user_mac, target_ip, user_ip, target_tcp_layer, data,
               data_len);
+    target_sequence_number += data_len;
   }
 };
