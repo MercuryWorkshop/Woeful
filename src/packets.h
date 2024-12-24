@@ -34,13 +34,13 @@ struct WispPacket {
 
     data_len = src_length - header_size;
 
-    data = std::shared_ptr<unsigned char[]>(new unsigned char[data_len]);
+    data = std::make_unique<unsigned char[]>(data_len);
     memcpy(data.get(), data_ptr, data_len);
   }
   WispPacket(uint8_t packet_type, uint32_t stream_id, unsigned char *data_src,
              size_t data_len)
       : packet_type(packet_type), stream_id(stream_id), data_len(data_len) {
-    data = std::shared_ptr<unsigned char[]>(new unsigned char[data_len]);
+    data = std::make_unique<unsigned char[]>(data_len);
     memcpy(data.get(), data_src, data_len);
   }
   WispPacket(uint8_t packet_type, uint32_t stream_id,
