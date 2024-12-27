@@ -124,8 +124,9 @@ std::optional<uint32_t> WebSocketManager::handle_data(WispPacket packet) {
     int err = EAGAIN;
     while (err == EAGAIN) {
       err = 0;
-      struct pollfd pfd{.fd = streams.find(packet.stream_id)->second.fd,
-                        .events = POLLOUT};
+      struct pollfd pfd {
+        .fd = streams.find(packet.stream_id)->second.fd, .events = POLLOUT
+      };
 #ifdef PCAP
       streams.find(packet.stream_id)
           ->second.pcap->write_dummy_user(packet.data.get(), packet.data_len);
@@ -143,7 +144,8 @@ std::optional<uint32_t> WebSocketManager::handle_data(WispPacket packet) {
     streams[packet.stream_id].buffer--;
 
     // reset message buffer
-    if (streams[packet.stream_id].buffer == 0 && has_backpressure == false) {
+    if (streams[packet.stream_id].buffer == 0 && has_backpressure &&
+        parent->send_queue_len < MAX_QUEUE) {
       streams[packet.stream_id].buffer = BUFFER_COUNT;
       send_continue(BUFFER_COUNT, packet.stream_id);
     }
@@ -204,6 +206,8 @@ void SystemWatcher::watch() {
           epoll.erase_fd(events[i].data.fd);
         }
 
+        send_queue_len++;
+
         // this mess finds the socket and string to send it
         loop->defer([this, combined_buffer, to_close, fd]() {
           std::optional<uint32_t> found_id;
@@ -246,6 +250,12 @@ void SystemWatcher::watch() {
             found_manager.value()->close_stream(found_id.value(), false);
           }
 
+          send_queue_len--;
+          if (send_queue_len < MAX_QUEUE) {
+            for (auto socket_manager : watched_sockets) {
+              socket_manager.second->update_streams();
+            }
+          }
           delete combined_buffer;
         });
       }

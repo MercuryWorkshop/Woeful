@@ -10,6 +10,7 @@
 #define SEGMENT_SIZE 1024 * 20
 #define MAX_WS_FRAME 1 * 1000000
 #define MAX_POSSIBLE_WS_FRAME 64 * 1000000
+#define MAX_QUEUE 1000
 
 enum PacketType {
   PACKET_CONNECT = 0x01,

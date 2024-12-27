@@ -29,6 +29,42 @@ const size_t THREAD_COUNT = std::thread::hardware_concurrency() - 2;
 class WebSocketManager;
 class SystemWatcher;
 
+class SystemWatcher {
+public:
+  std::mutex watched_sockets_lock;
+  std::unordered_map<size_t, WebSocketManager *> watched_sockets;
+
+  SystemWatcher() : loop(uWS::Loop::get()) {
+    watcher = std::thread(SystemWatcher::start_thread, this);
+  }
+  ~SystemWatcher() {
+    // clean watcher
+
+#ifdef DEBUG
+    printf("deconstructing\n");
+#endif
+    deconstructing = true;
+    wake();
+    watcher.join();
+  }
+
+  void watch();
+  static void start_thread(SystemWatcher *watcher) { watcher->watch(); }
+
+  // can be called by main thread
+  void wake() { epoll.wake(); }
+
+  EpollWrapper epoll;
+
+  std::atomic<size_t> send_queue_len = 0;
+
+private:
+  // for killing the other thread
+  std::thread watcher;
+  std::atomic<bool> deconstructing = false;
+  uWS::Loop *loop;
+};
+
 struct PerSocketData {
   size_t id;
   WebSocketManager *manager;
@@ -162,6 +198,9 @@ public:
 
   void update_streams() {
     std::shared_lock<std::shared_mutex> gaurd(stream_lock);
+    if (has_backpressure || parent->send_queue_len > MAX_QUEUE) {
+      return;
+    }
     for (auto &stream : streams) {
       if (stream.second.buffer == 0) {
         stream.second.buffer = BUFFER_COUNT;
@@ -189,38 +228,4 @@ private:
   bool received_info = false;
   // eg: dont send info packets mid stream
   bool info_valid = true;
-};
-
-class SystemWatcher {
-public:
-  std::mutex watched_sockets_lock;
-  std::unordered_map<size_t, WebSocketManager *> watched_sockets;
-
-  SystemWatcher() : loop(uWS::Loop::get()) {
-    watcher = std::thread(SystemWatcher::start_thread, this);
-  }
-  ~SystemWatcher() {
-    // clean watcher
-
-#ifdef DEBUG
-    printf("deconstructing\n");
-#endif
-    deconstructing = true;
-    wake();
-    watcher.join();
-  }
-
-  void watch();
-  static void start_thread(SystemWatcher *watcher) { watcher->watch(); }
-
-  // can be called by main thread
-  void wake() { epoll.wake(); }
-
-  EpollWrapper epoll;
-
-private:
-  // for killing the other thread
-  std::thread watcher;
-  std::atomic<bool> deconstructing = false;
-  uWS::Loop *loop;
 };
