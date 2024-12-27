@@ -124,9 +124,8 @@ std::optional<uint32_t> WebSocketManager::handle_data(WispPacket packet) {
     int err = EAGAIN;
     while (err == EAGAIN) {
       err = 0;
-      struct pollfd pfd {
-        .fd = streams.find(packet.stream_id)->second.fd, .events = POLLOUT
-      };
+      struct pollfd pfd{.fd = streams.find(packet.stream_id)->second.fd,
+                        .events = POLLOUT};
 #ifdef PCAP
       streams.find(packet.stream_id)
           ->second.pcap->write_dummy_user(packet.data.get(), packet.data_len);
@@ -155,7 +154,6 @@ std::optional<uint32_t> WebSocketManager::handle_data(WispPacket packet) {
 }
 void SystemWatcher::watch() {
   while (true) {
-    sched_yield();
     // make killable
     if (deconstructing) {
       break;
