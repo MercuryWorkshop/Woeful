@@ -34,13 +34,13 @@ struct WispPacket {
 
     data_len = src_length - header_size;
 
-    data = std::make_unique<unsigned char[]>(data_len);
+    data = std::make_unique_for_overwrite<unsigned char[]>(data_len);
     memcpy(data.get(), data_ptr, data_len);
   }
   WispPacket(uint8_t packet_type, uint32_t stream_id, unsigned char *data_src,
              size_t data_len)
       : packet_type(packet_type), stream_id(stream_id), data_len(data_len) {
-    data = std::make_unique<unsigned char[]>(data_len);
+    data = std::make_unique_for_overwrite<unsigned char[]>(data_len);
     memcpy(data.get(), data_src, data_len);
   }
   WispPacket(uint8_t packet_type, uint32_t stream_id,
@@ -77,7 +77,8 @@ struct InfoPacket {
     unsigned char *data_ptr = src + header_size;
 
     extension_data_len = src_length - header_size;
-    extension_data = std::make_unique<unsigned char[]>(extension_data_len);
+    extension_data =
+        std::make_unique_for_overwrite<unsigned char[]>(extension_data_len);
 
     memcpy(extension_data.get(), data_ptr, extension_data_len);
   }
@@ -86,7 +87,8 @@ struct InfoPacket {
       : major_wisp_version(major_wisp_version),
         minor_wisp_version(minor_wisp_version) {
     extension_data_len = src_length;
-    extension_data = std::make_unique<unsigned char[]>(src_length);
+    extension_data =
+        std::make_unique_for_overwrite<unsigned char[]>(src_length);
 
     memcpy(extension_data.get(), src, extension_data_len);
   }
@@ -124,8 +126,8 @@ struct ConnectPacket {
       destination_hostname_len += 1;
     }
 
-    destination_hostname =
-        std::make_unique<unsigned char[]>(destination_hostname_len);
+    destination_hostname = std::make_unique_for_overwrite<unsigned char[]>(
+        destination_hostname_len);
 
     if (src[src_length - 1] != 0) { // hostname must be null terminated
       destination_hostname.get()[destination_hostname_len - 1] = 0;
@@ -143,7 +145,8 @@ struct DataPacket {
 
   DataPacket(unsigned char *src, size_t src_length) {
     stream_payload_len = src_length;
-    stream_payload = std::make_unique<unsigned char[]>(src_length);
+    stream_payload =
+        std::make_unique_for_overwrite<unsigned char[]>(src_length);
 
     memcpy(stream_payload.get(), src, src_length);
   }

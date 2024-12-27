@@ -1,6 +1,8 @@
 cmake_minimum_required(VERSION 3.19)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_C_COMPILER "clang-18")
+set(CMAKE_CXX_COMPILER "clang++-18")
 
 project(Woeful)
 
@@ -9,7 +11,7 @@ if(NOT CMAKE_BUILD_TYPE)
 endif()
 
 
-set(CMAKE_CXX_FLAGS "-Wall -Wextra -Wno-error=unused-parameter")
+set(CMAKE_CXX_FLAGS "-Wall -Wextra -Wno-error=unused-parameter -std=c++20")
 if(PCAP STREQUAL "OH_YEAH")
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DPCAP")
 endif()
