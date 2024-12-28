@@ -30,7 +30,7 @@ public:
     struct addrinfo *result;
 
     memset(&hints, 0, sizeof(hints));
-    hints.ai_family = AF_UNSPEC;
+    hints.ai_family = AF_INET;
     hints.ai_socktype = sock_type;
     hints.ai_flags = 0;
     hints.ai_protocol = 0;
