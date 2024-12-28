@@ -102,28 +102,29 @@ public:
 
   void receive(std::string_view view) {
     WispPacket packet((unsigned char *)view.data(), view.size());
-    // TODO: log equivelent printf("Got packet type %i\n", packet.packet_type);
+    // TODO: implement wisp v2
     if (packet.packet_type == PACKET_INFO) {
-#ifdef DEBUG
-      printf("got info\n");
-#endif
-      if (!info_valid) {
-        send_close(0x04, 0);
-        ws->close();
-        return;
-      }
-      // TODO: proccess info packet info
-
-      // initial info
-      auto info_serialized = InfoPacket(2, 0, {}, 0).serialize();
-      auto serialized = WispPacket(PACKET_INFO, 0, info_serialized.first.get(),
-                                   info_serialized.second)
-                            .serialize();
-      ws->send(
-          std::string_view((char *)serialized.first.get(), serialized.second));
-
-      received_info = true;
-      info_valid = false;
+      // #ifdef DEBUG
+      //       printf("got info\n");
+      // #endif
+      //       if (!info_valid) {
+      //         send_close(0x04, 0);
+      //         ws->close();
+      //         return;
+      //       }
+      //
+      //       // initial info
+      //       auto info_serialized = InfoPacket(2, 0, {}, 0).serialize();
+      //       auto serialized = WispPacket(PACKET_INFO, 0,
+      //       info_serialized.first.get(),
+      //                                    info_serialized.second)
+      //                             .serialize();
+      //       ws->send(
+      //           std::string_view((char *)serialized.first.get(),
+      //           serialized.second));
+      //
+      //       received_info = true;
+      //       info_valid = false;
     } else {
       if (!received_info && info_valid) {
         info_valid = false;
