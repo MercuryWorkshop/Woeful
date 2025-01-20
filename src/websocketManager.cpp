@@ -197,6 +197,9 @@ void SystemWatcher::watch() {
           }
 
           combined_buffer->insert(combined_buffer->end(), buf, buf + count);
+          if (combined_buffer->size() > MAX_WS_FRAME) {
+            break;
+          }
         } while (true);
 
         // we cant wait on the other thread to close the stream
