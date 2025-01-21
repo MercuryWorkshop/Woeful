@@ -34,5 +34,24 @@ set(CPACK_PACKAGE_VERSION_MAJOR "1")
 set(CPACK_PACKAGE_VERSION_MINOR "0")
 set(CPACK_PACKAGE_VERSION_PATCH "0")
 
+include(FetchContent)
+
+FetchContent_Declare(
+    expected 
+    GIT_REPOSITORY https://github.com/TartanLlama/expected.git
+)
+FetchContent_MakeAvailable(expected)
+
+
+FetchContent_Declare(
+    tinyxml2 
+    GIT_REPOSITORY https://github.com/leethomason/tinyxml2.git
+    GIT_TAG master 
+)
+
+FetchContent_MakeAvailable(tinyxml2)
+
+include_directories(${expected_SOURCE_DIR}/include/)
+
 add_subdirectory(src)
 add_subdirectory(tests)

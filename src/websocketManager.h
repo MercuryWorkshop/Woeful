@@ -1,15 +1,13 @@
 #pragma once
 #include "BS_thread_pool.hpp"
 #include "packets.h"
-#include <iterator>
-#ifdef PCAP
-#include "pcap.hpp"
-#endif
+#include "server.h"
 #include "systemInterface.h"
 #include <cstddef>
 #include <cstdint>
 #include <cstdio>
 #include <ctime>
+#include <iterator>
 #include <mutex>
 #include <sched.h>
 #include <semaphore>
@@ -20,6 +18,9 @@
 #include <uWebSockets/App.h>
 #include <unistd.h>
 #include <unordered_map>
+#ifdef PCAP
+#include "pcap.h"
+#endif
 
 #define MAX_BACKPRESSURE 1024 * 1024 * 1024
 #define MAX_PACKET_SIZE 10 * 1024 * 1024
@@ -175,8 +176,11 @@ public:
   }
   WebSocket::SendStatus send_data(uint32_t stream_id, char *data, size_t len) {
 #ifdef PCAP
-    streams.find(stream_id)->second.pcap->write_dummy_target(
-        (const uint8_t *)data, len);
+    if (get_conf()->pcap_capture) {
+      std::shared_lock<std::shared_mutex> gaurd(stream_lock);
+      streams.find(stream_id)->second.pcap->write_dummy_target(
+          (const uint8_t *)data, len);
+    }
 #endif
 
     auto serialized =

@@ -20,6 +20,8 @@ enum PacketType {
   PACKET_INFO = 0x05,
 };
 
+// TODO: add packet size validation
+
 struct WispPacket {
   uint8_t packet_type;
   uint32_t stream_id;
@@ -156,7 +158,7 @@ struct DataPacket {
 struct ContinuePacket {
   uint32_t buffer_remaining;
 
-  ContinuePacket(unsigned char *src, size_t src_length) {
+  ContinuePacket(unsigned char *src, size_t) {
     buffer_remaining = *(uint32_t *)(src);
   }
   ContinuePacket(uint32_t buffer_remaining)
@@ -176,9 +178,7 @@ struct ContinuePacket {
 struct ClosePacket {
   uint8_t close_reason;
 
-  ClosePacket(unsigned char *src, size_t src_length) {
-    close_reason = *(uint8_t *)(src);
-  }
+  ClosePacket(unsigned char *src, size_t) { close_reason = *(uint8_t *)(src); }
   ClosePacket(uint8_t close_reason) : close_reason(close_reason) {}
   std::pair<std::shared_ptr<unsigned char[]>, size_t> serialize() {
     size_t build_size = sizeof(uint8_t);

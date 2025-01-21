@@ -1,3 +1,4 @@
+#include "server.h"
 #include "BS_thread_pool.hpp"
 #include "websocketManager.h"
 #include <cstddef>
@@ -21,7 +22,12 @@ bool interupted = false;
 // what does the int in this func do?
 void int_handler(int) { interupted = true; }
 
-void start_wisp_server(int port) {
+void start_wisp_server() {
+  auto conf = get_conf();
+  auto port = conf->port_number;
+  if (!port.has_value())
+    return;
+
   signal(SIGINT, int_handler);
 
   auto app = uWS::App().ws<PerSocketData>(
@@ -64,8 +70,8 @@ void start_wisp_server(int port) {
                      system_watcher.wake();
                    },
                .close =
-                   [](uWS::WebSocket<false, true, PerSocketData> *ws, int val,
-                      std::string_view error) {
+                   [](uWS::WebSocket<false, true, PerSocketData> *ws, int,
+                      std::string_view) {
 #ifdef DEBUG
                      printf("got closed\n");
 #endif
@@ -74,28 +80,27 @@ void start_wisp_server(int port) {
                    },
 
            });
-  app.listen(port,
+  app.listen(port.value(),
              [&app, port](us_listen_socket_t *listen_socket) {
-               uWS::Loop::get()->addPostHandler(
-                   NULL, [listen_socket, &app](uWS::Loop *) {
-                     if (interupted) {
+               uWS::Loop::get()->addPostHandler(NULL, [&app](uWS::Loop *) {
+                 if (interupted) {
 #ifdef DEBUG
-                       printf("killer app\n");
+                   printf("killer app\n");
 #endif
-                       app.close();
-                       interupted = false; // dont DUP! closing
-                       return;
-                     }
-                     // TODO: create equivelent log
-                     // printf("Sockets curently open:\n");
-                     // for (auto websocket : system_watcher.watched_sockets) {
-                     //   printf("Socket %lu\n", websocket.first);
-                     // }
-                     // printf("\n");
-                   });
+                   app.close();
+                   interupted = false; // dont DUP! closing
+                   return;
+                 }
+                 // TODO: create equivelent log
+                 // printf("Sockets curently open:\n");
+                 // for (auto websocket : system_watcher.watched_sockets) {
+                 //   printf("Socket %lu\n", websocket.first);
+                 // }
+                 // printf("\n");
+               });
 
                if (listen_socket) {
-                 printf("Listening to %i\n", port);
+                 printf("Listening to %i\n", port.value());
                } else {
                  printf("Failed to bind\n");
                }

@@ -2,30 +2,28 @@
 #include "websocketManager.h"
 #include "BS_thread_pool.hpp"
 #include "packets.h"
-#include <algorithm>
 #include <cerrno>
 #include <cstddef>
 #include <cstdint>
 #include <cstdio>
-#include <iterator>
 #include <mutex>
 #include <poll.h>
-#include <queue>
 #include <sched.h>
 #include <shared_mutex>
-#include <string_view>
 #include <sys/epoll.h>
 #include <sys/socket.h>
-#include <tuple>
 #include <unistd.h>
 #include <vector>
+#ifdef PCAP
+#include "server.h"
+#endif
 
 WebSocketManager::WebSocketManager(WebSocket *ws, size_t id,
                                    SystemWatcher *watcher,
                                    SystemInterface *interface,
                                    BS::thread_pool<BS::tp::none> *threadpool)
-    : ws(ws), parent(watcher), interface(interface), socket_id(id),
-      threadpool(threadpool) {
+    : parent(watcher), interface(interface), ws(ws), threadpool(threadpool),
+      socket_id(id) {
   auto user_data = ws->getUserData();
   user_data->id = id;
   user_data->manager = this;
@@ -69,7 +67,9 @@ void WebSocketManager::close_stream(uint32_t stream_id, bool remove_poll) {
     parent->epoll.erase_fd(streams[stream_id].fd);
 
 #ifdef PCAP
-  delete streams[stream_id].pcap;
+  if (get_conf()->pcap_capture) {
+    delete streams[stream_id].pcap;
+  }
 #endif
 
   close(streams[stream_id].fd);
@@ -99,7 +99,9 @@ std::optional<int> WebSocketManager::handle_connect(WispPacket packet) {
                                   .fd = connection->first,
                                   .fd_info = connection->second};
 #ifdef PCAP
-  stream_data.open_pcap();
+  if (get_conf()->pcap_capture) {
+    stream_data.open_pcap();
+  }
 #endif
 
   parent->epoll.push_fd(connection->first);
@@ -125,10 +127,13 @@ std::optional<uint32_t> WebSocketManager::handle_data(WispPacket packet) {
     while (err == EAGAIN) {
       err = 0;
       struct pollfd pfd{.fd = streams.find(packet.stream_id)->second.fd,
-                        .events = POLLOUT};
+                        .events = POLLOUT,
+                        .revents = 0};
 #ifdef PCAP
-      streams.find(packet.stream_id)
-          ->second.pcap->write_dummy_user(packet.data.get(), packet.data_len);
+      if (get_conf()->pcap_capture) {
+        streams.find(packet.stream_id)
+            ->second.pcap->write_dummy_user(packet.data.get(), packet.data_len);
+      }
 #endif
       int res = poll(&pfd, 1, -1);
       if (res != -1) {

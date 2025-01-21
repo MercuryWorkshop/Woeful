@@ -17,6 +17,7 @@ Maybe? It's C++ so I'm cautious to encourage you to use it over something like [
 Big thanks to all of these projects:
 - [uWebSockets](https://github.com/uNetworking/uWebSockets) A high performant web socket server library.
 - [Cli11](https://github.com/CLIUtils/CLI11.git) for configuration.
+- [pugixml](https://github.com/leethomason/tinyxml2) for xml configuration.
 - [tl::expected](https://github.com/TartanLlama/expected) a polyfill for the c++23 feature for better error handling.
 - [PcapPlusPlus](https://github.com/seladb/PcapPlusPlus.git) for recording traffic going through your wisp server.
 - [BS_thread_pool](https://github.com/bshoshany/thread-pool) a basic thread pool library.

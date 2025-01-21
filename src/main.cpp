@@ -3,6 +3,7 @@
 #include "server.h"
 #include <cstdio>
 #include <cstdlib>
+#include <set>
 #include <string>
 #include <thread>
 
@@ -15,9 +16,13 @@ int main(int argc, char *argv[]) {
       ->default_val(9001)
       ->envname("PORT");
 
+  std::string filename;
+  app.add_option("--config", filename,
+                 "Config file, overwrites other cli args.");
+
   std::string descr = "Woeful is a C++ wisp server that might not suck.";
 #ifdef PCAP
-  descr += "\nPCAP generation enabled!!";
+  descr += "\nPCAP generation enabled!";
 #endif
   app.description(descr);
 
@@ -28,6 +33,17 @@ int main(int argc, char *argv[]) {
     exit(-1);
   }
 
+  if (filename != "") {
+    auto conf = read_config((char *)filename.c_str());
+    if (!conf.has_value()) {
+      fprintf(stderr, "%s: %s\n", argv[0], conf.error().c_str());
+      exit(-1);
+    }
+    set_conf(conf.value());
+  } else {
+    set_conf({.pcap_capture = false, .port_number = num_port});
+  }
+
   // TODO: cli args
-  start_wisp_server(num_port);
+  start_wisp_server();
 }

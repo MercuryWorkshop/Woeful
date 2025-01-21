@@ -2,9 +2,9 @@ add_executable(woeful
   main.cpp
   server.cpp
   websocketManager.cpp
+  config.cpp
 )
 
-include(FetchContent)
 FetchContent_Declare(
     cli11_proj
     QUIET
@@ -13,12 +13,6 @@ FetchContent_Declare(
 )
 
 FetchContent_MakeAvailable(cli11_proj)
-
-FetchContent_Declare(
-    expected 
-    GIT_REPOSITORY https://github.com/TartanLlama/expected.git
-)
-FetchContent_MakeAvailable(expected)
 
 # needs libpcap-dev
 set(PCAPPP_INSTALL "ON")
@@ -30,7 +24,7 @@ FetchContent_MakeAvailable(PcapPlusPlus)
 
 include_directories(${PcapPlusPlus_SOURCE_DIR}/Packet++/header)
 
-target_link_libraries(woeful PRIVATE usockets z CLI11::CLI11 Pcap++ Packet++ Common++ pcap)
+target_link_libraries(woeful PRIVATE usockets z CLI11::CLI11 Pcap++ Packet++ Common++ pcap tinyxml2)
 
 install(TARGETS woeful RUNTIME DESTINATION bin)
 
