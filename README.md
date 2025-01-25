@@ -4,6 +4,7 @@ A [Wisp](https://github.com/MercuryWorkshop/wisp-protocol) server that might not
 # Features
 - Wisp V1 Support
 - Pcap network capture
+- Blacklisting & Whitelisting ports and domains
 
 # Is it fast?
 It's faster the [WispServerCpp](https://github.com/FoxMoss/WispServerCpp/). 

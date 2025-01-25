@@ -12,3 +12,5 @@ Basic config, run with `--config basic.xml`
   <list_port port="22" />
 </config>
 ```
+
+For more complex blocking needs (ie. removing adult content) see [/etc/hosts](https://github.com/StevenBlack/hosts) changing your dns to [1.1.1.3](https://one.one.one.one/family/). As a good rule of thumb you should also consider blocking any hostname or ip that is linked to your local network.
