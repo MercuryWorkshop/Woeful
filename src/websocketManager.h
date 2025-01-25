@@ -86,10 +86,10 @@ public:
 #ifdef PCAP
   std::string pcap_file;
   PcapInterface *pcap;
-  void open_pcap() {
+  void open_pcap(std::string ip, uint16_t port) {
     pcap_file = std::to_string((unsigned)time(NULL)) + "." +
                 std::to_string(pcap_iter++) + ".woeful.pcap";
-    pcap = new PcapInterface(pcap_file);
+    pcap = new PcapInterface(pcap_file, ip, port);
   }
 #endif
 };

@@ -21,8 +21,11 @@ private:
   std::mutex writer_gaurd;
   const std::string user_ip = "192.168.0.1";
   const std::string target_ip = "10.0.0.1";
-  const std::string user_mac = "00:50:43:11:22:33";
-  const std::string target_mac = "aa:bb:cc:dd:ee:ff";
+
+  // random, iirc these dont actually matter
+  const std::string user_mac = "4A:7D:3D:39:61:79";
+  const std::string target_mac = "16:F7:AD:6C:C1:57";
+
   const uint16_t user_port = 1000;
   const uint16_t target_port = 2000;
 
@@ -30,7 +33,8 @@ private:
   uint32_t target_sequence_number = 3;
 
 public:
-  PcapInterface(std::string file) : out(file) {
+  PcapInterface(std::string file, std::string target_ip, uint16_t target_port)
+      : out(file), target_ip(target_ip), target_port(target_port) {
     out.open();
     printf("opening pcap %s\n", out.getFileName().c_str());
 

@@ -2,6 +2,7 @@
 #include "websocketManager.h"
 #include "BS_thread_pool.hpp"
 #include "packets.h"
+#include <arpa/inet.h>
 #include <cerrno>
 #include <cstddef>
 #include <cstdint>
@@ -10,6 +11,7 @@
 #include <poll.h>
 #include <sched.h>
 #include <shared_mutex>
+#include <string>
 #include <sys/epoll.h>
 #include <sys/socket.h>
 #include <unistd.h>
@@ -101,7 +103,13 @@ std::optional<int> WebSocketManager::handle_connect(WispPacket packet) {
                                   .fd_info = connection->second};
 #ifdef PCAP
   if (get_conf()->pcap_capture) {
-    stream_data.open_pcap();
+    char str[INET_ADDRSTRLEN];
+
+    struct sockaddr_in *saddr =
+        (struct sockaddr_in *)connection->second->ai_addr;
+    inet_ntop(connection->second->ai_family, &saddr->sin_addr, str,
+              INET_ADDRSTRLEN);
+    stream_data.open_pcap(std::string(str), connect_packet.destination_port);
   }
 #endif
 
