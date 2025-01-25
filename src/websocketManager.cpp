@@ -84,7 +84,8 @@ std::optional<int> WebSocketManager::handle_connect(WispPacket packet) {
   ConnectPacket connect_packet(packet.data.get(), packet.data_len);
   uint8_t stream_type = connect_packet.stream_type;
 #ifdef DEBUG
-  printf("got connect %s\n", connect_packet.destination_hostname.get());
+  printf("got connect %s : %i\n", connect_packet.destination_hostname.get(),
+         connect_packet.destination_port);
 #endif
 
   auto connection =

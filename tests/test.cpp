@@ -189,3 +189,15 @@ TEST(Config, BadElement) {
   auto conf = read_config((char *)"../tests/bad_element.xml");
   EXPECT_EQ(conf.has_value(), false);
 }
+TEST(Config, Blacklist) {
+  auto conf = read_config((char *)"../tests/blacklist.xml");
+  EXPECT_EQ(conf.has_value(), true);
+  EXPECT_EQ(conf.value().block_type, WoefulConfig::BLOCK_BLACK);
+  EXPECT_EQ(conf.value().block_members.size(), 2);
+  EXPECT_EQ(conf.value().block_members[0].type,
+            WoefulConfig::Member::MEMBER_HOSTNAME);
+  EXPECT_EQ(conf.value().block_members[0].data.hostname, "example.com");
+  EXPECT_EQ(conf.value().block_members[1].type,
+            WoefulConfig::Member::MEMBER_PORT);
+  EXPECT_EQ(conf.value().block_members[1].data.port, 22);
+}

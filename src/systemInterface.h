@@ -1,4 +1,5 @@
 #include "packets.h"
+#include "server.h"
 #include <arpa/inet.h>
 #include <bits/types/res_state.h>
 #include <cerrno>
@@ -58,6 +59,34 @@ public:
     default:
       return {};
     }
+
+    bool is_matched_hostname = false;
+    bool is_matched_port = false;
+    auto conf = get_conf();
+    for (auto member : conf->block_members) {
+      switch (member.type) {
+      case WoefulConfig::Member::MEMBER_HOSTNAME: {
+        if (member.data.hostname == hostname) {
+          is_matched_hostname = true;
+        }
+        break;
+      }
+
+      case WoefulConfig::Member::MEMBER_PORT: {
+        if (member.data.port == port) {
+          is_matched_port = true;
+        }
+        break;
+      }
+      }
+    }
+
+    if (conf->block_type == conf->BLOCK_BLACK &&
+        (is_matched_hostname || is_matched_port))
+      return {};
+    if (conf->block_type == conf->BLOCK_WHITE &&
+        !(is_matched_hostname && is_matched_port))
+      return {};
 
     std::string port_str = std::to_string(port);
     auto dns = resolve(hostname, (char *)port_str.c_str(), sock_type);

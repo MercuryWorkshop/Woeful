@@ -1,4 +1,5 @@
 #include "server.h"
+#include <cstring>
 
 WoefulConfig global_conf;
 
@@ -17,6 +18,20 @@ tl::expected<WoefulConfig, std::string> read_config(char *filename) {
   }
 
   WoefulConfig ret;
+
+  auto block_type_attr = root->Attribute("block_type");
+  if (block_type_attr != NULL) {
+    if (strcmp(block_type_attr, "black") == 0) {
+      ret.block_type = WoefulConfig::BLOCK_BLACK;
+    } else if (strcmp(block_type_attr, "white") == 0) {
+      ret.block_type = WoefulConfig::BLOCK_WHITE;
+    } else if (strcmp(block_type_attr, "none") == 0) {
+      ret.block_type = WoefulConfig::BLOCK_NONE;
+    } else {
+      return tl::unexpected("Attribute block_type has invalid value");
+    }
+  }
+
   auto child = root->FirstChildElement();
   while (child != NULL) {
     if (strcmp(child->Name(), "port") == 0) {
@@ -44,6 +59,33 @@ tl::expected<WoefulConfig, std::string> read_config(char *filename) {
         return tl::unexpected("Failed to parse pcap_capture.");
       }
       ret.pcap_capture = pcap_capture;
+
+      child = child->NextSiblingElement();
+      continue;
+    }
+
+    if (strcmp(child->Name(), "list_port") == 0) {
+      auto attribute = child->FindAttribute("port");
+      if (attribute == NULL) {
+        return tl::unexpected("Failed to find port.");
+      }
+      unsigned int port_number;
+      if (attribute->QueryUnsignedValue(&port_number) !=
+          tinyxml2::XML_SUCCESS) {
+        return tl::unexpected("Failed to parse port_number.");
+      }
+      ret.block_members.push_back(WoefulConfig::Member(port_number));
+
+      child = child->NextSiblingElement();
+      continue;
+    }
+
+    if (strcmp(child->Name(), "list_hostname") == 0) {
+      auto attribute = child->FindAttribute("hostname");
+      if (attribute == NULL) {
+        return tl::unexpected("Failed to find hostname.");
+      }
+      ret.block_members.push_back(WoefulConfig::Member(attribute->Value()));
 
       child = child->NextSiblingElement();
       continue;
