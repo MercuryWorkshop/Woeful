@@ -1,4 +1,6 @@
 # Woeful
+<img src="https://raw.githubusercontent.com/MercuryWorkshop/Woeful/refs/heads/main/public/wordmark.png" height="180">
+
 A [Wisp](https://github.com/MercuryWorkshop/wisp-protocol) server that might not suck.
 
 # Features
